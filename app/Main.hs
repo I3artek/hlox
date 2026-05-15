@@ -4,4 +4,6 @@ import Control.Monad.State
 import Lib
 
 main :: IO ()
-main = evalStateT repl initGlobalState
+main = do
+  putStrLn "\n\nWelcome to LOX interpreter written in Haskell\n"
+  evalStateT repl initGlobalState
