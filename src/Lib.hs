@@ -17,5 +17,15 @@ repl = do
     then do return ()
     else do
       line <- lift getLine
-      lift $ print line
+      run line
       repl
+
+run :: String -> REPL ()
+run s = do
+  let tokens = scanTokens s
+  lift $ print tokens
+
+type Token = String
+
+scanTokens :: String -> [Token]
+scanTokens = words
