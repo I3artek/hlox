@@ -3,6 +3,8 @@ module Lib (initGlobalState, repl) where
 import Control.Monad.State
 import System.IO
 
+import Tokens (scanTokens)
+
 data GlobalState = GlobalState {placeholder :: Int}
 
 initGlobalState :: GlobalState
@@ -24,8 +26,3 @@ run :: String -> REPL ()
 run s = do
   let tokens = scanTokens s
   lift $ print tokens
-
-type Token = String
-
-scanTokens :: String -> [Token]
-scanTokens = words
