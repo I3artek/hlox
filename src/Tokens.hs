@@ -3,6 +3,7 @@
 module Tokens (Token, scanTokens) where
 
 import Control.Monad.State
+import Data.Char (isDigit)
 
 data Token
   = -- Single character
@@ -29,7 +30,7 @@ data Token
   | -- Literals
     IDENTIFIER String
   | STRING String
-  | NUMBER String
+  | NUMBER Double
   | -- Keywords
     AND
   | CLASS
@@ -55,6 +56,7 @@ data TokenState = TokenState
   { current :: Char,
     code :: String,
     tokens :: [Token],
+    word :: String,
     line :: Int,
     pos :: Int,
     syntaxErrors :: [String]
@@ -154,6 +156,39 @@ newline = do
         TokenState {line = _line + 1, pos = 0, ..}
     )
 
+startLongToken :: Char -> Tokenizer ()
+startLongToken c = modify (\TokenState {..} -> TokenState {word = [c], ..})
+
+addToLongToken :: Char -> Tokenizer ()
+addToLongToken c =
+  modify
+    ( \TokenState {word = _word, ..} ->
+        TokenState {word = _word ++ [c], ..}
+    )
+
+integer :: Tokenizer ()
+integer = do
+  c <- peek
+  if isDigit c
+    then do
+      addToLongToken c
+      _ <- advance
+      integer
+    else return ()
+
+number :: Tokenizer ()
+number = do
+  integer
+  c <- peek
+  if c == '.'
+    then do
+      addToLongToken '.'
+      _ <- advance
+      integer
+      addToken $ NUMBER 0.5
+    else
+      addToken $ NUMBER 1.0
+
 scanToken :: Tokenizer ()
 scanToken = do
   end <- isAtEnd
@@ -188,7 +223,13 @@ scanToken = do
         '\t' -> skip
         '\n' -> newline
         '\0' -> skip
-        _ -> syntaxError c
+        _ -> do
+          if isDigit c
+            then do
+              startLongToken c
+              number
+            else
+              syntaxError c
       scanToken
 
 -- list of tokens and a list of errors
@@ -203,6 +244,7 @@ scanTokens s = (tokens ts, syntaxErrors ts)
           { current = '\0',
             code = s,
             tokens = [],
+            word = "",
             line = 0,
             pos = 0,
             syntaxErrors = []
