@@ -4,6 +4,7 @@ module Tokens (Token, scanTokens) where
 
 import Control.Monad.State
 import Data.Char (isAlpha, isAlphaNum, isDigit)
+import Data.Map
 
 data Token
   = -- Single character
@@ -55,6 +56,7 @@ data Token
 data TokenState = TokenState
   { current :: Char,
     code :: String,
+    keywords :: Map String Token,
     tokens :: [Token],
     word :: String,
     line :: Int,
@@ -198,7 +200,12 @@ identifier = do
       identifier
     else do
       ts <- get
-      addToken $ IDENTIFIER $ word ts
+      let name = word ts
+          kws = keywords ts
+          maybeToken = kws !? name
+      case maybeToken of
+        Just token -> addToken token
+        Nothing -> addToken $ IDENTIFIER name
 
 scanToken :: Tokenizer ()
 scanToken = do
@@ -260,8 +267,30 @@ scanTokens s = (tokens ts, syntaxErrors ts)
           { current = '\0',
             code = s,
             tokens = [],
+            keywords = loxKeywords,
             word = "",
             line = 0,
             pos = 0,
             syntaxErrors = []
           }
+
+loxKeywords :: Map String Token
+loxKeywords =
+  fromList
+    [ ("and", AND),
+      ("class", CLASS),
+      ("else", ELSE),
+      ("false", FALSE),
+      ("fun", FUN),
+      ("for", FOR),
+      ("if", IF),
+      ("nil", NIL),
+      ("or", OR),
+      ("print", PRINT),
+      ("return", RETURN),
+      ("super", SUPER),
+      ("this", THIS),
+      ("true", TRUE),
+      ("var", VAR),
+      ("while", WHILE)
+    ]
