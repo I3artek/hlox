@@ -232,7 +232,8 @@ string = do
           string
     else do
       if end
-        then return ()
+        then do
+          syntaxError "Unterminated string"
         else do
           ts <- get
           _ <- advance
