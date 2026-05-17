@@ -81,9 +81,10 @@ syntaxError c = do
 isAtEnd :: Tokenizer Bool
 isAtEnd = do
   ts <- get
+  curr <- peek
   let s = code ts
   case s of
-    [] -> return True
+    [] -> return $ curr == '\0'
     _ -> return False
 
 getCurrent :: Tokenizer Char
@@ -156,8 +157,8 @@ newline = do
         TokenState {line = _line + 1, pos = 0, ..}
     )
 
-startLongToken :: Char -> Tokenizer ()
-startLongToken c = modify (\TokenState {..} -> TokenState {word = [c], ..})
+clearLongToken :: Tokenizer ()
+clearLongToken = modify (\TokenState {..} -> TokenState {word = "", ..})
 
 addToLongToken :: Char -> Tokenizer ()
 addToLongToken c =
@@ -165,6 +166,11 @@ addToLongToken c =
     ( \TokenState {word = _word, ..} ->
         TokenState {word = _word ++ [c], ..}
     )
+
+startLongToken :: Char -> Tokenizer ()
+startLongToken c = do
+  clearLongToken
+  addToLongToken c
 
 integer :: Tokenizer ()
 integer = do
@@ -207,6 +213,28 @@ identifier = do
         Just token -> addToken token
         Nothing -> addToken $ IDENTIFIER name
 
+string :: Tokenizer ()
+string = do
+  end <- isAtEnd
+  next <- peek
+  if next /= '"' && not end
+    then do
+      addToLongToken next
+      _ <- advance
+      if next == '\n'
+        then do
+          newline
+          string
+        else
+          string
+    else do
+      if end
+        then return ()
+        else do
+          ts <- get
+          _ <- advance
+          addToken $ STRING $ word ts
+
 scanToken :: Tokenizer ()
 scanToken = do
   end <- isAtEnd
@@ -232,6 +260,11 @@ scanToken = do
         '=' -> match '=' EQUAL_EQUAL EQUAL
         '>' -> match '=' GREATER_EQUAL GREATER
         '<' -> match '=' LESS_EQUAL LESS
+        '"' -> do
+          -- We don't want to have the '"' in the string itself
+          clearLongToken
+          string
+        -- Comments
         '/' -> do
           next <- peek
           if next == '/' then comment else addToken SLASH
@@ -242,11 +275,13 @@ scanToken = do
         '\n' -> newline
         '\0' -> skip
         _ -> do
+          -- Numbers
           if isDigit c
             then do
               startLongToken c
               number
             else
+              -- Identifiers and keywords
               if isAlpha c
                 then do
                   startLongToken c
