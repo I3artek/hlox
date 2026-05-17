@@ -66,17 +66,20 @@ data TokenState = TokenState
 
 type Tokenizer a = State TokenState a
 
-syntaxError :: Char -> Tokenizer ()
-syntaxError c = do
-  ts <- get
-  let l = line ts
-      p = pos ts
-  let msg = "Unrecognized symbol '" ++ [c] ++ "' on line " ++ show l ++ " pos " ++ show p
+syntaxError :: String -> Tokenizer ()
+syntaxError msg =
   modify
     ( \TokenState {syntaxErrors = _syntaxErrors, ..} ->
         TokenState {syntaxErrors = _syntaxErrors ++ [msg], ..}
     )
-  return ()
+
+unrecognizedSymbol :: Char -> Tokenizer ()
+unrecognizedSymbol c = do
+  ts <- get
+  let l = line ts
+      p = pos ts
+  let msg = "Unrecognized symbol '" ++ [c] ++ "' on line " ++ show l ++ " pos " ++ show p
+  syntaxError msg
 
 isAtEnd :: Tokenizer Bool
 isAtEnd = do
@@ -287,7 +290,7 @@ scanToken = do
                   startLongToken c
                   identifier
                 else
-                  syntaxError c
+                  unrecognizedSymbol c
       scanToken
 
 -- list of tokens and a list of errors
