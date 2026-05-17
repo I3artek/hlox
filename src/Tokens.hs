@@ -134,6 +134,17 @@ match expected tMatch tNoMatch = do
     else
       addToken tNoMatch
 
+comment :: Tokenizer ()
+comment = do
+  next <- peek
+  end <- isAtEnd
+  if next == '\n' || end
+    then
+      return ()
+    else do
+      _ <- advance
+      comment
+
 scanToken :: Tokenizer ()
 scanToken = do
   end <- isAtEnd
@@ -159,6 +170,9 @@ scanToken = do
         '=' -> match '=' EQUAL_EQUAL EQUAL
         '>' -> match '=' GREATER_EQUAL GREATER
         '<' -> match '=' LESS_EQUAL LESS
+        '/' -> do
+          next <- peek
+          if next == '/' then comment else addToken SLASH
         _ -> syntaxError
       scanToken
 
