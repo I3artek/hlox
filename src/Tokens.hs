@@ -3,7 +3,7 @@
 module Tokens (Token, scanTokens) where
 
 import Control.Monad.State
-import Data.Char (isDigit)
+import Data.Char (isAlpha, isAlphaNum, isDigit)
 
 data Token
   = -- Single character
@@ -188,6 +188,18 @@ number = do
     else
       addToken $ NUMBER 1.0
 
+identifier :: Tokenizer ()
+identifier = do
+  next <- peek
+  if isAlphaNum next || next == '_'
+    then do
+      addToLongToken next
+      _ <- advance
+      identifier
+    else do
+      ts <- get
+      addToken $ IDENTIFIER $ word ts
+
 scanToken :: Tokenizer ()
 scanToken = do
   end <- isAtEnd
@@ -228,7 +240,12 @@ scanToken = do
               startLongToken c
               number
             else
-              syntaxError c
+              if isAlpha c
+                then do
+                  startLongToken c
+                  identifier
+                else
+                  syntaxError c
       scanToken
 
 -- list of tokens and a list of errors
