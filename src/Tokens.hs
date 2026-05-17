@@ -55,14 +55,24 @@ data TokenState = TokenState
   { current :: Char,
     code :: String,
     tokens :: [Token],
+    line :: Int,
+    pos :: Int,
     syntaxErrors :: [String]
   }
 
 type Tokenizer a = State TokenState a
 
-syntaxError :: String -> Tokenizer ()
-syntaxError s = do
-  modify (\TokenState {syntaxErrors = _syntaxErrors, ..} -> TokenState {syntaxErrors = _syntaxErrors ++ [s], ..})
+syntaxError :: Tokenizer ()
+syntaxError = do
+  ts <- get
+  let c = current ts
+      l = line ts
+      p = pos ts
+  let msg = "Unrecognized symbol " ++ [c] ++ " on line " ++ show l ++ " pos " ++ show p
+  modify
+    ( \TokenState {syntaxErrors = _syntaxErrors, ..} ->
+        TokenState {syntaxErrors = _syntaxErrors ++ [msg], ..}
+    )
   return ()
 
 isAtEnd :: Tokenizer Bool
@@ -108,7 +118,10 @@ advance = do
       modify (\TokenState {..} -> TokenState {current = '\0', ..})
       return curr
     (x : xs) -> do
-      modify (\TokenState {..} -> TokenState {current = x, code = xs, ..})
+      modify
+        ( \TokenState {pos = _pos, ..} ->
+            TokenState {current = x, code = xs, pos = _pos + 1, ..}
+        )
       return curr
 
 scanToken :: Tokenizer ()
@@ -119,6 +132,7 @@ scanToken = do
     else do
       c <- advance
       case c of
+        -- Single character tokens
         '(' -> addToken LEFT_PAREN
         ')' -> addToken RIGHT_PAREN
         '{' -> addToken LEFT_BRACE
@@ -129,11 +143,21 @@ scanToken = do
         '+' -> addToken PLUS
         ';' -> addToken SEMICOLON
         '*' -> addToken STAR
-        _ -> syntaxError $ "Unrecognized symbol: "++[c]
+        _ -> syntaxError
       scanToken
 
 scanTokens :: String -> [Token]
 scanTokens [] = []
 scanTokens s = tokens ts
   where
-    ts = execState scanToken TokenState {current = '\0', code = s, tokens = [], syntaxErrors = []}
+    ts =
+      execState
+        scanToken
+        TokenState
+          { current = '\0',
+            code = s,
+            tokens = [],
+            line = 0,
+            pos = 0,
+            syntaxErrors = []
+          }
