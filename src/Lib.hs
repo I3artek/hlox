@@ -26,5 +26,7 @@ repl = do
 
 run :: String -> REPL ()
 run s = do
-  let tokens = scanTokens s
-  lift $ print tokens
+  let (tokens, errors) = scanTokens s
+  case errors of
+    [] -> lift $ print tokens
+    errs -> lift $ print errs

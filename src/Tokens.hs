@@ -62,13 +62,12 @@ data TokenState = TokenState
 
 type Tokenizer a = State TokenState a
 
-syntaxError :: Tokenizer ()
-syntaxError = do
+syntaxError :: Char -> Tokenizer ()
+syntaxError c = do
   ts <- get
-  let c = current ts
-      l = line ts
+  let l = line ts
       p = pos ts
-  let msg = "Unrecognized symbol " ++ [c] ++ " on line " ++ show l ++ " pos " ++ show p
+  let msg = "Unrecognized symbol '" ++ [c] ++ "' on line " ++ show l ++ " pos " ++ show p
   modify
     ( \TokenState {syntaxErrors = _syntaxErrors, ..} ->
         TokenState {syntaxErrors = _syntaxErrors ++ [msg], ..}
@@ -188,12 +187,14 @@ scanToken = do
         '\r' -> skip
         '\t' -> skip
         '\n' -> newline
-        _ -> syntaxError
+        '\0' -> skip
+        _ -> syntaxError c
       scanToken
 
-scanTokens :: String -> [Token]
-scanTokens [] = []
-scanTokens s = tokens ts
+-- list of tokens and a list of errors
+scanTokens :: String -> ([Token], [String])
+scanTokens [] = ([], [])
+scanTokens s = (tokens ts, syntaxErrors ts)
   where
     ts =
       execState
