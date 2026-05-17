@@ -100,14 +100,14 @@ peek = do
   return $ current ts
 
 -- We use [Char] instead of a tuple, so we can use string comparison
-peekTwo :: Tokenizer [Char]
+peekTwo :: Tokenizer (Char, Char)
 peekTwo = do
   ts <- get
   first <- peek
   let s = code ts
   case s of
-    [] -> return [first, '\0']
-    (x : _) -> return [first, x]
+    [] -> return (first, '\0')
+    (x : _) -> return (first, x)
 
 advance :: Tokenizer Char
 advance = do
@@ -179,8 +179,8 @@ integer = do
 number :: Tokenizer ()
 number = do
   integer
-  c <- peek
-  if c == '.'
+  (point, digit) <- peekTwo
+  if point == '.' && isDigit digit
     then do
       addToLongToken '.'
       _ <- advance
