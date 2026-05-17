@@ -145,6 +145,16 @@ comment = do
       _ <- advance
       comment
 
+skip :: Tokenizer ()
+skip = return ()
+
+newline :: Tokenizer ()
+newline = do
+  modify
+    ( \TokenState {line = _line, pos = _, ..} ->
+        TokenState {line = _line + 1, pos = 0, ..}
+    )
+
 scanToken :: Tokenizer ()
 scanToken = do
   end <- isAtEnd
@@ -173,6 +183,11 @@ scanToken = do
         '/' -> do
           next <- peek
           if next == '/' then comment else addToken SLASH
+        -- Ignore all the whitespaces
+        ' ' -> skip
+        '\r' -> skip
+        '\t' -> skip
+        '\n' -> newline
         _ -> syntaxError
       scanToken
 
