@@ -124,10 +124,21 @@ advance = do
         )
       return curr
 
+match :: Char -> Token -> Token -> Tokenizer ()
+match expected tMatch tNoMatch = do
+  next <- peek
+  if next == expected
+    then do
+      _ <- advance
+      addToken tMatch
+    else
+      addToken tNoMatch
+
 scanToken :: Tokenizer ()
 scanToken = do
   end <- isAtEnd
-  if end
+  curr <- getCurrent
+  if end && curr == '\0'
     then return ()
     else do
       c <- advance
@@ -143,6 +154,11 @@ scanToken = do
         '+' -> addToken PLUS
         ';' -> addToken SEMICOLON
         '*' -> addToken STAR
+        -- One ot two character tokens
+        '!' -> match '=' BANG_EQUAL BANG
+        '=' -> match '=' EQUAL_EQUAL EQUAL
+        '>' -> match '=' GREATER_EQUAL GREATER
+        '<' -> match '=' LESS_EQUAL LESS
         _ -> syntaxError
       scanToken
 
