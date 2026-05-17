@@ -1,11 +1,12 @@
 {-# LANGUAGE RecordWildCards #-}
+
 module Tokens (Token, scanTokens) where
 
 import Control.Monad.State
 
 data Token
--- Single character
-  = LEFT_PAREN
+  = -- Single character
+    LEFT_PAREN
   | RIGHT_PAREN
   | LEFT_BRACE
   | RIGHT_BRACE
@@ -16,8 +17,8 @@ data Token
   | SEMICOLON
   | SLASH
   | STAR
--- One or two characters
-  | BANG
+  | -- One or two characters
+    BANG
   | BANG_EQUAL
   | EQUAL
   | EQUAL_EQUAL
@@ -25,12 +26,12 @@ data Token
   | GREATER_EQUAL
   | LESS
   | LESS_EQUAL
--- Literals
-  | IDENTIFIER String
+  | -- Literals
+    IDENTIFIER String
   | STRING String
   | NUMBER String
--- Keywords
-  | AND
+  | -- Keywords
+    AND
   | CLASS
   | ELSE
   | FALSE
@@ -46,17 +47,31 @@ data Token
   | TRUE
   | VAR
   | WHILE
--- EOF
-  | EOF
+  | -- EOF
+    EOF
   deriving (Show)
 
-data TokenState = TokenState {
-  current :: Char,
-  code :: String,
-  tokens :: [Token]
+data TokenState = TokenState
+  { current :: Char,
+    code :: String,
+    tokens :: [Token],
+    syntaxErrors :: [String]
   }
 
 type Tokenizer a = State TokenState a
+
+syntaxError :: String -> Tokenizer ()
+syntaxError s = do
+  modify (\TokenState {syntaxErrors = _syntaxErrors, ..} -> TokenState {syntaxErrors = _syntaxErrors ++ [s], ..})
+  return ()
+
+isAtEnd :: Tokenizer Bool
+isAtEnd = do
+  ts <- get
+  let s = code ts
+  case s of
+    [] -> return True
+    _ -> return False
 
 getCurrent :: Tokenizer Char
 getCurrent = do
@@ -65,59 +80,60 @@ getCurrent = do
 
 addToken :: Token -> Tokenizer ()
 addToken t = do
-  modify (\TokenState {tokens=_tokens,..} -> TokenState {tokens=_tokens++[t], ..})
+  modify (\TokenState {tokens = _tokens, ..} -> TokenState {tokens = _tokens ++ [t], ..})
   return ()
 
 peek :: Tokenizer Char
 peek = do
   ts <- get
-  let s = code ts
-  case s of
-    [] -> return '\0'
-    (x:_) -> return x
+  return $ current ts
 
-peekTwo :: Tokenizer (Char, Char)
+-- We use [Char] instead of a tuple, so we can use string comparison
+peekTwo :: Tokenizer [Char]
 peekTwo = do
   ts <- get
+  first <- peek
   let s = code ts
   case s of
-    (x:y:_) -> return (x,y)
-    _ -> return ('\0','\0')
+    [] -> return [first, '\0']
+    (x : _) -> return [first, x]
 
 advance :: Tokenizer Char
 advance = do
   ts <- get
-  let s = code ts
+  let curr = current ts
+      s = code ts
   case s of
-    [] -> return '\0'
-    (x:xs) -> do
-      modify (\TokenState {..} -> TokenState {current=x, code=xs, ..})
-      return x
-
-scanSingleCharToken :: Tokenizer ()
-scanSingleCharToken = do
-  c <- getCurrent
-  case c of
-    '(' -> addToken LEFT_PAREN
-    ')' -> addToken RIGHT_PAREN
-    '{' -> addToken LEFT_BRACE
-    '}' -> addToken RIGHT_BRACE
-    ',' -> addToken COMMA
-    '.' -> addToken DOT
-    '-' -> addToken MINUS
-    '+' -> addToken PLUS
-    ';' -> addToken SEMICOLON
-    '*' -> addToken STAR
-  return ()
+    [] -> do
+      modify (\TokenState {..} -> TokenState {current = '\0', ..})
+      return curr
+    (x : xs) -> do
+      modify (\TokenState {..} -> TokenState {current = x, code = xs, ..})
+      return curr
 
 scanToken :: Tokenizer ()
 scanToken = do
-  c <- advance
-  if c == '\0' then return () else do
-    scanSingleCharToken
-    scanToken
+  end <- isAtEnd
+  if end
+    then return ()
+    else do
+      c <- advance
+      case c of
+        '(' -> addToken LEFT_PAREN
+        ')' -> addToken RIGHT_PAREN
+        '{' -> addToken LEFT_BRACE
+        '}' -> addToken RIGHT_BRACE
+        ',' -> addToken COMMA
+        '.' -> addToken DOT
+        '-' -> addToken MINUS
+        '+' -> addToken PLUS
+        ';' -> addToken SEMICOLON
+        '*' -> addToken STAR
+        _ -> syntaxError $ "Unrecognized symbol: "++[c]
+      scanToken
 
 scanTokens :: String -> [Token]
+scanTokens [] = []
 scanTokens s = tokens ts
   where
-    ts = execState scanToken TokenState {current='\0', code=s, tokens=[]}
+    ts = execState scanToken TokenState {current = '\0', code = s, tokens = [], syntaxErrors = []}
