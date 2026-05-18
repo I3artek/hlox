@@ -239,6 +239,18 @@ string = do
           _ <- advance
           addToken $ STRING $ word ts
 
+scanTokenFrom :: Char -> Tokenizer ()
+scanTokenFrom c
+  -- Numbers
+  | isDigit c = do
+      startLongToken c
+      number
+  -- Identifiers and keywords
+  | isAlpha c = do
+      startLongToken c
+      identifier
+  | otherwise = unrecognizedSymbol c
+
 scanToken :: Tokenizer ()
 scanToken = do
   end <- isAtEnd
@@ -271,27 +283,16 @@ scanToken = do
         -- Comments
         '/' -> do
           next <- peek
-          if next == '/' then comment else addToken SLASH
+          case next of
+            '/' -> comment
+            _ -> addToken SLASH
         -- Ignore all the whitespaces
         ' ' -> skip
         '\r' -> skip
         '\t' -> skip
         '\n' -> newline
         '\0' -> skip
-        _ -> do
-          -- Numbers
-          if isDigit c
-            then do
-              startLongToken c
-              number
-            else
-              -- Identifiers and keywords
-              if isAlpha c
-                then do
-                  startLongToken c
-                  identifier
-                else
-                  unrecognizedSymbol c
+        _ -> scanTokenFrom c
       scanToken
 
 -- list of tokens and a list of errors
