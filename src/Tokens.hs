@@ -291,21 +291,20 @@ scanToken = do
         '\r' -> skip
         '\t' -> skip
         '\n' -> newline
-        '\0' -> skip
         _ -> scanTokenFrom c
       scanToken
 
 -- list of tokens and a list of errors
 scanTokens :: String -> ([Token], [String])
 scanTokens [] = ([], [])
-scanTokens s = (tokens ts, syntaxErrors ts)
+scanTokens (x : xs) = (tokens ts, syntaxErrors ts)
   where
     ts =
       execState
         scanToken
         TokenState
-          { current = '\0',
-            code = s,
+          { current = x,
+            code = xs,
             tokens = [],
             keywords = loxKeywords,
             word = "",
