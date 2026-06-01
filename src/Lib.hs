@@ -1,6 +1,7 @@
 module Lib (initGlobalState, repl) where
 
 import Control.Monad.State
+import Exprs
 import System.IO
 import Tokens (scanTokens)
 
@@ -28,5 +29,8 @@ run :: String -> REPL ()
 run s = do
   let (tokens, errors) = scanTokens s
   case errors of
-    [] -> lift $ print tokens
+    [] -> do
+      lift $ print tokens
+      let tree = parse tokens
+      lift $ print tree
     errs -> lift $ print errs

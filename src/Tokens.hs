@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Tokens (Token, scanTokens) where
+module Tokens (Token (..), scanTokens) where
 
 import Control.Monad.State
 import Data.Char (isAlpha, isAlphaNum, isDigit)
@@ -51,7 +51,7 @@ data Token
   | WHILE
   | -- EOF
     EOF
-  deriving (Show)
+  deriving (Show, Eq)
 
 data TokenState = TokenState
   { current :: Char,
