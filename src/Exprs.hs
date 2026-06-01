@@ -68,47 +68,31 @@ expression :: Parser Expr
 expression = do
   equality
 
-leftAssociativeRecurse :: Parser Expr -> [Token] -> Expr -> Parser Expr
-leftAssociativeRecurse lowerPrecedence operators left = do
-  maybeOperator <- match operators
-  case maybeOperator of
-    Just operator -> do
-      right <- lowerPrecedence
-      let newLeft = Binary $ BinaryExpr operator left right
-      leftAssociativeRecurse lowerPrecedence operators newLeft
-    Nothing -> return left
-
-leftAssociative :: Parser Expr -> (Expr -> Parser Expr) -> Parser Expr
-leftAssociative lowerPrecedence recurseToRight = do
+leftAssociative :: [Token] -> Parser Expr -> Parser Expr
+leftAssociative operators lowerPrecedence = do
   left <- lowerPrecedence
   recurseToRight left
-
-equalityRecurse :: Expr -> Parser Expr
-equalityRecurse = leftAssociativeRecurse comparison [BANG_EQUAL, EQUAL_EQUAL]
+  where
+    recurseToRight left = do
+      maybeOperator <- match operators
+      case maybeOperator of
+        Just operator -> do
+          right <- lowerPrecedence
+          let newLeft = Binary $ BinaryExpr operator left right
+          recurseToRight newLeft
+        Nothing -> return left
 
 equality :: Parser Expr
-equality = leftAssociative comparison equalityRecurse
-
-comparisonRecurse :: Expr -> Parser Expr
-comparisonRecurse =
-  leftAssociativeRecurse
-    term
-    [GREATER, GREATER_EQUAL, LESS, LESS_EQUAL]
+equality = leftAssociative [BANG_EQUAL, EQUAL_EQUAL] comparison
 
 comparison :: Parser Expr
-comparison = leftAssociative term comparisonRecurse
-
-termRecurse :: Expr -> Parser Expr
-termRecurse = leftAssociativeRecurse factor [MINUS, PLUS]
+comparison = leftAssociative [GREATER, GREATER_EQUAL, LESS, LESS_EQUAL] term
 
 term :: Parser Expr
-term = leftAssociative factor termRecurse
-
-factorRecurse :: Expr -> Parser Expr
-factorRecurse = leftAssociativeRecurse unary [SLASH, STAR]
+term = leftAssociative [MINUS, PLUS] factor
 
 factor :: Parser Expr
-factor = leftAssociative unary factorRecurse
+factor = leftAssociative [SLASH, STAR] unary
 
 unary :: Parser Expr
 unary = do
