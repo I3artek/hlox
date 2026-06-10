@@ -27,10 +27,11 @@ repl = do
 
 run :: String -> REPL ()
 run s = do
-  let (tokens, errors) = scanTokens s
+  let (tkns, errors) = scanTokens s
   case errors of
     [] -> do
-      lift $ print tokens
-      let tree = parse tokens
+      -- lift $ print tokens
+      let tree = parse tkns
       lift $ print tree
+      lift $ print $ evalExpr tree
     errs -> lift $ print errs
