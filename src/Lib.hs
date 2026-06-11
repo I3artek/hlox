@@ -34,5 +34,9 @@ run s = do
       -- lift $ print tokens
       let tree = parse tkns
       lift $ print tree
-      lift $ print $ evalExpr tree
+      -- lift $ print $ evalExpr tree
+      let x = evalExpr tree
+      case x of
+        Left e -> lift $ putStrLn $ "Runtime error: " ++ e
+        Right v -> lift $ print v
     errs -> lift $ print errs

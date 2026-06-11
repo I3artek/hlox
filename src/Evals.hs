@@ -1,5 +1,6 @@
 module Evals where
 
+import Control.Monad.Error.Class (throwError)
 import Exprs (BinaryExpr (..), Expr (..), GroupingExpr (..), LiteralExpr (..), UnaryExpr (..))
 import Tokens (Token (..))
 
@@ -11,33 +12,35 @@ data Value
   | LoxNil
   deriving (Show, Eq, Ord)
 
-evalExpr :: Expr -> Value
-evalExpr (Binary e) = evalBinaryExpr left op right
-  where
-    left = evalExpr $ binaryLeft e
-    right = evalExpr $ binaryRight e
-    op = binaryOperator e
-evalExpr (Grouping e) = evalExpr $ groupedExpression e
-evalExpr (Literal e) = evalLiteral $ value e
-evalExpr (Unary e) = evalUnaryExpr op right
-  where
-    right = evalExpr $ unaryRight e
-    op = unaryOperator e
+type MaybeValue = Either String Value
 
-evalBinaryExpr :: Value -> Token -> Value -> Value
-evalBinaryExpr (LoxString a) PLUS (LoxString b) = LoxString (a ++ b)
-evalBinaryExpr (LoxNumber a) PLUS (LoxNumber b) = LoxNumber (a + b)
-evalBinaryExpr (LoxNumber a) MINUS (LoxNumber b) = LoxNumber (a - b)
-evalBinaryExpr (LoxNumber _) SLASH (LoxNumber 0) = error "Division by zero not allowed!"
-evalBinaryExpr (LoxNumber a) SLASH (LoxNumber b) = LoxNumber (a / b)
-evalBinaryExpr (LoxNumber a) STAR (LoxNumber b) = LoxNumber (a * b)
-evalBinaryExpr v1 BANG_EQUAL v2 = LoxBool $ v1 /= v2
-evalBinaryExpr v1 EQUAL_EQUAL v2 = LoxBool $ v1 == v2
-evalBinaryExpr v1 GREATER v2 = LoxBool $ v1 > v2
-evalBinaryExpr v1 GREATER_EQUAL v2 = LoxBool $ v1 >= v2
-evalBinaryExpr v1 LESS v2 = LoxBool $ v1 < v2
-evalBinaryExpr v1 LESS_EQUAL v2 = LoxBool $ v1 <= v2
-evalBinaryExpr t1 op t2 = error $ "Not possible to perform " ++ show t1 ++ " " ++ show op ++ " " ++ show t2
+evalExpr :: Expr -> MaybeValue
+evalExpr (Binary e) = do
+  left <- evalExpr $ binaryLeft e
+  right <- evalExpr $ binaryRight e
+  let op = binaryOperator e
+  evalBinaryExpr left op right
+evalExpr (Grouping e) = evalExpr $ groupedExpression e
+evalExpr (Literal e) = Right $ evalLiteral $ value e
+evalExpr (Unary e) = do
+  right <- evalExpr $ unaryRight e
+  let op = unaryOperator e
+  Right $ evalUnaryExpr op right
+
+evalBinaryExpr :: Value -> Token -> Value -> MaybeValue
+evalBinaryExpr (LoxString a) PLUS (LoxString b) = Right $ LoxString (a ++ b)
+evalBinaryExpr (LoxNumber a) PLUS (LoxNumber b) = Right $ LoxNumber (a + b)
+evalBinaryExpr (LoxNumber a) MINUS (LoxNumber b) = Right $ LoxNumber (a - b)
+evalBinaryExpr (LoxNumber _) SLASH (LoxNumber 0) = throwError "Division by zero not allowed!"
+evalBinaryExpr (LoxNumber a) SLASH (LoxNumber b) = Right $ LoxNumber (a / b)
+evalBinaryExpr (LoxNumber a) STAR (LoxNumber b) = Right $ LoxNumber (a * b)
+evalBinaryExpr v1 BANG_EQUAL v2 = Right $ LoxBool $ v1 /= v2
+evalBinaryExpr v1 EQUAL_EQUAL v2 = Right $ LoxBool $ v1 == v2
+evalBinaryExpr v1 GREATER v2 = Right $ LoxBool $ v1 > v2
+evalBinaryExpr v1 GREATER_EQUAL v2 = Right $ LoxBool $ v1 >= v2
+evalBinaryExpr v1 LESS v2 = Right $ LoxBool $ v1 < v2
+evalBinaryExpr v1 LESS_EQUAL v2 = Right $ LoxBool $ v1 <= v2
+evalBinaryExpr t1 op t2 = throwError $ "Not possible to perform " ++ show t1 ++ " " ++ show op ++ " " ++ show t2
 
 evalLiteral :: Token -> Value
 evalLiteral (STRING s) = LoxString s
