@@ -10,7 +10,14 @@ data Value
   | LoxObject String -- for now
   | LoxBool Bool
   | LoxNil
-  deriving (Show, Eq, Ord)
+  deriving (Eq, Ord)
+
+instance Show Value where
+  show (LoxString s) = show s
+  show (LoxNumber n) = show n
+  show (LoxObject s) = show s
+  show (LoxBool b) = show b
+  show LoxNil = ""
 
 type MaybeValue = Either String Value
 
@@ -30,6 +37,8 @@ evalExpr (Unary e) = do
 evalBinaryExpr :: Value -> Token -> Value -> MaybeValue
 evalBinaryExpr (LoxString a) PLUS (LoxString b) = Right $ LoxString (a ++ b)
 evalBinaryExpr (LoxNumber a) PLUS (LoxNumber b) = Right $ LoxNumber (a + b)
+evalBinaryExpr (LoxString a) PLUS v = Right $ LoxString (a ++ show v)
+evalBinaryExpr (v) PLUS (LoxString b) = Right $ LoxString (show v ++ b)
 evalBinaryExpr (LoxNumber a) MINUS (LoxNumber b) = Right $ LoxNumber (a - b)
 evalBinaryExpr (LoxNumber _) SLASH (LoxNumber 0) = throwError "Division by zero not allowed!"
 evalBinaryExpr (LoxNumber a) SLASH (LoxNumber b) = Right $ LoxNumber (a / b)
