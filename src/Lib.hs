@@ -1,6 +1,7 @@
 module Lib (initGlobalState, repl) where
 
 import Control.Monad.State
+import Evals (evalExpr)
 import Exprs
 import System.IO
 import Tokens (scanTokens)
