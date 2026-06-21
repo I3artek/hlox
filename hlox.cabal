@@ -28,6 +28,7 @@ library
       Evals
       Exprs
       Lib
+      Stmts
       Tokens
   other-modules:
       Paths_hlox

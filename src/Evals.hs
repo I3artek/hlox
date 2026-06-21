@@ -1,7 +1,9 @@
 module Evals where
 
 import Control.Monad.Error.Class (throwError)
+import Control.Monad.State
 import Exprs (BinaryExpr (..), Expr (..), GroupingExpr (..), LiteralExpr (..), UnaryExpr (..))
+import Stmts (Stmt (..))
 import Tokens (Token (..))
 
 data Value
@@ -20,6 +22,36 @@ instance Show Value where
   show LoxNil = ""
 
 type MaybeValue = Either String Value
+
+-- placeholder type
+type ScopeState = Int
+
+type Scope a = StateT ScopeState IO a
+
+runtimeError :: String -> Scope ()
+runtimeError msg = do
+  lift $ putStrLn $ "Runtime Error: " ++ msg
+
+execScope :: [Stmt] -> Scope ()
+execScope [] = return ()
+execScope (s : rest) = do
+  execStmt s
+  execScope rest
+
+execProgram :: [Stmt] -> IO ()
+execProgram stmts = evalStateT (execScope stmts) (0)
+
+execStmt :: Stmt -> Scope ()
+execStmt (ExprStmt e) = do
+  let val = evalExpr e
+  case val of
+    Left v -> runtimeError v
+    Right _ -> return ()
+execStmt (PrintStmt e) = do
+  let val = evalExpr e
+  case val of
+    Left v -> runtimeError v
+    Right v -> lift $ print v
 
 evalExpr :: Expr -> MaybeValue
 evalExpr (Binary e) = do

@@ -1,8 +1,8 @@
 module Lib (initGlobalState, repl) where
 
 import Control.Monad.State
-import Evals (evalExpr)
-import Exprs
+import Evals (execProgram)
+import Stmts (parse)
 import System.IO
 import Tokens (scanTokens)
 
@@ -31,12 +31,8 @@ run s = do
   let (tkns, errors) = scanTokens s
   case errors of
     [] -> do
-      -- lift $ print tokens
-      let tree = parse tkns
-      lift $ print tree
-      -- lift $ print $ evalExpr tree
-      let x = evalExpr tree
-      case x of
-        Left e -> lift $ putStrLn $ "Runtime error: " ++ e
-        Right v -> lift $ print v
+      lift $ print tkns
+      let stmts = parse tkns
+      lift $ print stmts
+      lift $ execProgram stmts
     errs -> lift $ print errs

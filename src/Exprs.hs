@@ -122,6 +122,3 @@ primary = do
           return $ Grouping $ GroupingExpr e
         _ -> do advance; error "Closing parentheses missing" -- This should raise an error
     _ -> error $ "Unexpected token: " ++ show next
-
-parse :: [Token] -> Expr
-parse ts = evalState expression (ParserState ts)
