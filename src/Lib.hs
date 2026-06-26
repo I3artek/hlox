@@ -31,9 +31,9 @@ run s = do
   let (tkns, errors) = scanTokens s
   case errors of
     [] -> do
-      lift $ print tkns
+      -- lift $ print tkns
       let stmts = parse tkns
-      lift $ print stmts
+      -- lift $ print stmts
       _ <- lift $ execProgram stmts
       return ()
     errs -> lift $ print errs
