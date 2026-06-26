@@ -28,30 +28,38 @@ type ScopeState = Int
 
 type Scope a = StateT ScopeState IO a
 
-runtimeError :: String -> Scope ()
+runtimeError :: String -> Scope Bool
 runtimeError msg = do
-  lift $ putStrLn $ "Runtime Error: " ++ msg
+  lift $ putStrLn ("Runtime Error: " ++ msg)
+  return False
 
-execScope :: [Stmt] -> Scope ()
-execScope [] = return ()
+runtimeSuccess :: Scope Bool
+runtimeSuccess = return True
+
+execScope :: [Stmt] -> Scope Bool
+execScope [] = return True
 execScope (s : rest) = do
-  execStmt s
-  execScope rest
+  status <- execStmt s
+  case status of
+    True -> execScope rest
+    False -> return False
 
-execProgram :: [Stmt] -> IO ()
+execProgram :: [Stmt] -> IO Bool
 execProgram stmts = evalStateT (execScope stmts) (0)
 
-execStmt :: Stmt -> Scope ()
+execStmt :: Stmt -> Scope Bool
 execStmt (ExprStmt e) = do
   let val = evalExpr e
   case val of
-    Left v -> runtimeError v
-    Right _ -> return ()
+    Left err -> runtimeError err
+    Right _ -> runtimeSuccess
 execStmt (PrintStmt e) = do
   let val = evalExpr e
   case val of
-    Left v -> runtimeError v
-    Right v -> lift $ print v
+    Left err -> runtimeError err
+    Right v -> do
+      lift $ print v
+      runtimeSuccess
 
 evalExpr :: Expr -> MaybeValue
 evalExpr (Binary e) = do

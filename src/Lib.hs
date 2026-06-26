@@ -34,5 +34,6 @@ run s = do
       lift $ print tkns
       let stmts = parse tkns
       lift $ print stmts
-      lift $ execProgram stmts
+      _ <- lift $ execProgram stmts
+      return ()
     errs -> lift $ print errs
