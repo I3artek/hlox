@@ -18,11 +18,11 @@ statement = do
 
 printStatement :: Parser Stmt
 printStatement = do
-  dupa <- expression
+  e <- expression
   semicolon <- match [SEMICOLON]
   case semicolon of
     Just _ -> do
-      return $ PrintStmt dupa
+      return $ PrintStmt e
     Nothing -> error "Expect ';' after value."
 
 exprStatement :: Parser Stmt
