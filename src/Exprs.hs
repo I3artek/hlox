@@ -1,5 +1,6 @@
 module Exprs where
 
+import Control.Monad.Except (ExceptT, catchError, runExceptT, throwError)
 import Control.Monad.State
 import Tokens (Token (..))
 
@@ -37,7 +38,8 @@ instance Show Expr where
 
 data ParserState = ParserState {tokens :: [Token]}
 
-type Parser a = State ParserState a
+-- type Parser a = StateT ParserState Maybe a
+type Parser a = ExceptT String (State ParserState) a
 
 peek :: Parser Token
 peek = do
@@ -55,14 +57,23 @@ advance = do
     [] -> return ()
     (_ : rest) -> put ps {tokens = rest}
 
-match :: [Token] -> Parser (Maybe Token)
+match :: [Token] -> Parser Token
 match expected = do
   next <- peek
   if next `elem` expected
     then do
       advance
-      return $ Just next
-    else return Nothing
+      return next
+    else throwError ""
+
+consume :: Token -> Parser ()
+consume expected = do
+  next <- peek
+  if next == expected
+    then do
+      advance
+      return ()
+    else throwError $ "Expected " ++ show expected
 
 expression :: Parser Expr
 expression = do
@@ -73,14 +84,14 @@ leftAssociative operators lowerPrecedence = do
   left <- lowerPrecedence
   recurseToRight left
   where
-    recurseToRight left = do
-      maybeOperator <- match operators
-      case maybeOperator of
-        Just operator -> do
+    recurseToRight left =
+      do
+        do
+          operator <- match operators
           right <- lowerPrecedence
           let newLeft = Binary $ BinaryExpr operator left right
           recurseToRight newLeft
-        Nothing -> return left
+        `catchError` (\_ -> return left)
 
 equality :: Parser Expr
 equality = leftAssociative [BANG_EQUAL, EQUAL_EQUAL] comparison
@@ -95,13 +106,13 @@ factor :: Parser Expr
 factor = leftAssociative [SLASH, STAR] unary
 
 unary :: Parser Expr
-unary = do
-  maybeOperator <- match [BANG, MINUS]
-  case maybeOperator of
-    Just operator -> do
+unary =
+  do
+    do
+      operator <- match [BANG, MINUS]
       right <- unary
       return $ Unary $ UnaryExpr operator right
-    Nothing -> primary
+    `catchError` (\_ -> primary)
 
 primary :: Parser Expr
 primary = do
@@ -120,5 +131,5 @@ primary = do
         RIGHT_PAREN -> do
           advance
           return $ Grouping $ GroupingExpr e
-        _ -> do advance; error "Closing parentheses missing" -- This should raise an error
-    _ -> error $ "Unexpected token: " ++ show next
+        _ -> do advance; throwError "Closing parentheses missing" -- This should raise an error
+    _ -> throwError $ "Unexpected token: " ++ show next

@@ -32,7 +32,7 @@ run s = do
   case errors of
     [] -> do
       -- lift $ print tkns
-      let stmts = parse tkns
+      stmts <- lift $ parse tkns
       -- lift $ print stmts
       _ <- lift $ execProgram stmts
       return ()

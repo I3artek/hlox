@@ -1,6 +1,7 @@
 module Stmts where
 
-import Control.Monad.State (evalState)
+import Control.Monad.Except (catchError, runExceptT, throwError)
+import Control.Monad.State
 import Exprs
 import Tokens (Token (..))
 
@@ -9,29 +10,34 @@ data Stmt
   | PrintStmt Expr
   deriving (Show)
 
+consumeSemicolon :: Parser ()
+consumeSemicolon =
+  do
+    do
+      consume SEMICOLON
+    `catchError` (\s -> throwError $ s ++ " after a value")
+
 statement :: Parser Stmt
-statement = do
-  maybePrint <- match [PRINT]
-  case maybePrint of
-    Just _ -> printStatement
-    Nothing -> exprStatement
+statement =
+  do
+    do
+      _ <- match [PRINT]
+      printStatement
+    `catchError` (\_ -> exprStatement)
 
 printStatement :: Parser Stmt
-printStatement = do
-  e <- expression
-  semicolon <- match [SEMICOLON]
-  case semicolon of
-    Just _ -> do
+printStatement =
+  do
+    do
+      e <- expression
+      consumeSemicolon
       return $ PrintStmt e
-    Nothing -> error "Expect ';' after value."
 
 exprStatement :: Parser Stmt
 exprStatement = do
   expr <- expression
-  semicolon <- match [SEMICOLON]
-  case semicolon of
-    Just _ -> return $ ExprStmt expr
-    Nothing -> error "Expect ';' after value."
+  consumeSemicolon
+  return $ ExprStmt expr
 
 statements :: Parser [Stmt]
 statements = do
@@ -43,5 +49,11 @@ statements = do
       rest <- statements
       return (current : rest)
 
-parse :: [Token] -> [Stmt]
-parse ts = evalState statements (ParserState ts)
+parse :: [Token] -> IO [Stmt]
+parse ts = do
+  let maybeStmts = evalState (runExceptT statements) (ParserState ts)
+  case maybeStmts of
+    Left err -> do
+      print err
+      return []
+    Right stmts -> return stmts
