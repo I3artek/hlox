@@ -38,8 +38,10 @@ instance Show Expr where
 
 data ParserState = ParserState {tokens :: [Token]}
 
--- type Parser a = StateT ParserState Maybe a
-type Parser a = ExceptT String (State ParserState) a
+data ParseError = MatchError | ConsumeError String | InputError String deriving Show
+
+type Parser a = ExceptT ParseError (State ParserState) a
+
 
 peek :: Parser Token
 peek = do
@@ -57,6 +59,7 @@ advance = do
     [] -> return ()
     (_ : rest) -> put ps {tokens = rest}
 
+
 match :: [Token] -> Parser Token
 match expected = do
   next <- peek
@@ -64,7 +67,15 @@ match expected = do
     then do
       advance
       return next
-    else throwError ""
+    else throwError MatchError
+
+ifMatchErrorDo :: Parser a -> Parser a -> Parser a
+ifMatchErrorDo action errorCase =
+  catchError action $ \e -> do
+    case e of
+      MatchError -> errorCase
+      err -> throwError err
+
 
 consume :: Token -> Parser ()
 consume expected = do
@@ -73,7 +84,7 @@ consume expected = do
     then do
       advance
       return ()
-    else throwError $ "Expected " ++ show expected
+    else throwError $ ConsumeError $ "Expected " ++ show expected
 
 expression :: Parser Expr
 expression = do
@@ -131,5 +142,5 @@ primary = do
         RIGHT_PAREN -> do
           advance
           return $ Grouping $ GroupingExpr e
-        _ -> do advance; throwError "Closing parentheses missing" -- This should raise an error
-    _ -> throwError $ "Unexpected token: " ++ show next
+        _ -> do advance; throwError $ InputError $ "Closing parentheses missing" -- This should raise an error
+    _ -> throwError $ InputError $ "Unexpected token: " ++ show next
