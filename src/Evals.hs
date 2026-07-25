@@ -3,7 +3,7 @@ module Evals where
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.State
-import Data.Map (Map, empty, insert)
+import Data.Map (Map, empty, insert, findWithDefault)
 import Exprs (BinaryExpr (..), Expr (..), GroupingExpr (..), LiteralExpr (..), UnaryExpr (..))
 import Stmts (Stmt (..))
 import Tokens (Token (..))
@@ -44,6 +44,11 @@ evalError msg = do
 addToScope :: String -> Value -> Scope ()
 addToScope name val = do
   modify (insert name val)
+
+lookupInScope :: String -> Scope Value
+lookupInScope name = do
+  vars <- get
+  return $ findWithDefault LoxNil name vars
 
 execScope :: [Stmt] -> Scope ()
 execScope [] = return ()
@@ -105,7 +110,7 @@ evalBinaryExpr t1 op t2 = evalError $ "Not possible to perform " ++ show t1 ++ "
 evalLiteral :: Token -> Scope Value
 evalLiteral (STRING s) = return $ LoxString s
 evalLiteral (NUMBER n) = return $ LoxNumber n
-evalLiteral (IDENTIFIER x) = return $ LoxObject x
+evalLiteral (IDENTIFIER x) = lookupInScope x
 evalLiteral FALSE = return $ LoxBool False
 evalLiteral TRUE = return $ LoxBool True
 evalLiteral _ = return LoxNil
