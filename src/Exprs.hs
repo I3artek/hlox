@@ -1,6 +1,6 @@
 module Exprs where
 
-import Control.Monad.Except (ExceptT, catchError, runExceptT, throwError)
+import Control.Monad.Except (ExceptT, catchError, throwError)
 import Control.Monad.State
 import Tokens (Token (..))
 

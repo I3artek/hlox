@@ -1,10 +1,8 @@
 module Stmts where
 
-import Control.Exception (throw)
 import Control.Monad.Except (catchError, runExceptT, throwError)
 import Control.Monad.State
 import Exprs
-import Foreign.C (throwErrno)
 import Tokens (Token (..))
 
 data Stmt

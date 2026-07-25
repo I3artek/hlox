@@ -1,39 +1,36 @@
-module Lib (initGlobalState, repl) where
+module Lib (runREPL) where
 
 import Control.Monad.State
-import Evals (execProgram)
+import Evals (Scope, execScope, scopeIO, ScopeState)
 import Stmts (parse)
 import System.IO
 import Tokens (scanTokens)
+import Control.Monad.Except (runExceptT)
 
--- This should hold information like the map of all identidiers.
--- In repl, it should be preserved between lines ofc.
-data GlobalState = GlobalState {placeholder :: Int}
-
-initGlobalState :: GlobalState
-initGlobalState = GlobalState {placeholder = 0}
-
-type REPL a = StateT GlobalState IO a
-
-repl :: REPL ()
+repl :: Scope ()
 repl = do
-  lift $ putStrLn "> HLox REPL:"
-  finish <- lift isEOF
+  scopeIO $ putStrLn "> HLox REPL:"
+  finish <- scopeIO isEOF
   if finish
     then do return ()
     else do
-      line <- lift getLine
+      line <- scopeIO getLine
       run line
       repl
 
-run :: String -> REPL ()
+runREPL :: ScopeState -> IO ()
+runREPL initialScope = do
+  (errors, scope) <- runStateT (runExceptT $ repl) (initialScope)
+  case errors of
+    Left err -> do print err; runREPL scope 
+    Right _ -> return ()
+
+run :: String -> Scope ()
 run s = do
   let (tkns, errors) = scanTokens s
   case errors of
     [] -> do
-      -- lift $ print tkns
-      stmts <- lift $ parse tkns
-      -- lift $ print stmts
-      _ <- lift $ execProgram stmts
+      stmts <- scopeIO $ parse tkns
+      execScope stmts
       return ()
-    errs -> lift $ print errs
+    errs -> scopeIO $ print errs

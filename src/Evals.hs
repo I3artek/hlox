@@ -3,7 +3,6 @@ module Evals where
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.State
-import Data.Data (typeOf)
 import Data.Map (Map, empty, insert)
 import Exprs (BinaryExpr (..), Expr (..), GroupingExpr (..), LiteralExpr (..), UnaryExpr (..))
 import Stmts (Stmt (..))
@@ -26,10 +25,13 @@ instance Show Value where
 
 type RuntimeError = String
 
--- placeholder type
 type ScopeState = Map String Value
 
 type Scope a = ExceptT RuntimeError (StateT ScopeState IO) a
+
+scopeIO :: IO a -> Scope a
+scopeIO io = do
+  lift $ lift io
 
 runtimeError :: String -> Scope ()
 runtimeError msg = do
