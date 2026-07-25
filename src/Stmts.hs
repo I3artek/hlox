@@ -9,6 +9,7 @@ data Stmt
   = ExprStmt Expr
   | PrintStmt Expr
   | VarStmt String Expr
+  | BlockStmt [Stmt]
   deriving (Show)
 
 consumeSemicolon :: Parser ()
@@ -25,9 +26,31 @@ statement :: Parser Stmt
 statement =
   do
     do
-      _ <- match [PRINT]
-      printStatement
+      next <- match [PRINT, LEFT_BRACE]
+      case next of
+        PRINT -> printStatement
+        LEFT_BRACE -> blockStatement
+        _ -> undefined
     `ifMatchErrorDo` exprStatement
+
+blockStatement :: Parser Stmt
+blockStatement = do
+  stmts <- block
+  consume RIGHT_BRACE
+  return $ BlockStmt stmts
+
+-- This is almost the same as program, but we keep them separate on purpose
+-- as we don't want program to stop parsing on a random "}"
+block :: Parser [Stmt]
+block = do
+  next <- peek
+  case next of
+    EOF -> return []
+    RIGHT_BRACE -> return []
+    _ -> do
+      current <- declaration
+      rest <- block
+      return (current : rest)
 
 printStatement :: Parser Stmt
 printStatement =

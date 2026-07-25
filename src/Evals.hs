@@ -99,8 +99,19 @@ execStmt (PrintStmt e) = do
 execStmt (VarStmt name e) = do
   val <- evalExpr e
   defineInScope name val
-  objects <- get
-  lift $ lift $ print objects
+execStmt (BlockStmt stmts) = do
+  modify (\envs -> empty : envs)
+  execScope stmts
+  exitScope
+
+-- Make sure we always have at least one (global) env
+-- Throw an error otherwise as this is a bug and not a user error
+exitScope :: Scope ()
+exitScope = do
+  envs <- get
+  case envs of
+    (_ : e : nvs) -> put (e : nvs)
+    _ -> error "Left global scope!"
 
 evalExpr :: Expr -> Scope Value
 evalExpr (Assignment e) = do
