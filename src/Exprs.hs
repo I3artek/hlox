@@ -5,10 +5,14 @@ import Control.Monad.State
 import Tokens (Token (..))
 
 data Expr
-  = Binary BinaryExpr
+  = Assignment AssignmentExpr
+  | Binary BinaryExpr
   | Grouping GroupingExpr
   | Literal LiteralExpr
   | Unary UnaryExpr
+  | Variable VariableExpr
+
+data AssignmentExpr = AssignmentExpr {assignmentName :: String, assignmentValue :: Expr}
 
 data BinaryExpr = BinaryExpr {binaryOperator :: Token, binaryLeft :: Expr, binaryRight :: Expr}
 
@@ -18,7 +22,10 @@ data LiteralExpr = LiteralExpr {value :: Token}
 
 data UnaryExpr = UnaryExpr {unaryOperator :: Token, unaryRight :: Expr}
 
+data VariableExpr = VariableExpr {varName :: String}
+
 instance Show Expr where
+  show (Assignment e) = "(" ++ assignmentName e ++ " = " ++ show (assignmentValue e) ++ ")"
   show (Binary e) =
     "("
       ++ show (binaryOperator e)
@@ -35,10 +42,16 @@ instance Show Expr where
       ++ " "
       ++ show (unaryRight e)
       ++ ")"
+  show (Variable e) = "(var: " ++ varName e ++ ")"
 
 data ParserState = ParserState {tokens :: [Token]}
 
-data ParseError = MatchError | ConsumeError String | InputError String deriving (Show)
+data ParseError
+  = MatchError
+  | ConsumeError String
+  | InputError String
+  | AssignmentError String
+  deriving (Show)
 
 type Parser a = ExceptT ParseError (State ParserState) a
 
@@ -92,7 +105,19 @@ consume expected = do
 
 expression :: Parser Expr
 expression = do
-  equality
+  assignment
+
+assignment :: Parser Expr
+assignment = do
+  expr <- equality
+  do
+    do
+      _ <- match [EQUAL]
+      right <- assignment
+      case expr of
+        (Variable (VariableExpr name)) -> return $ Assignment $ AssignmentExpr name right
+        _ -> throwError $ AssignmentError $ "'" ++ show expr ++ "' is not a valid lvalue!"
+    `ifMatchErrorDo` return expr
 
 leftAssociative :: [Token] -> Parser Expr -> Parser Expr
 leftAssociative operators lowerPrecedence = do
@@ -139,7 +164,7 @@ primary = do
     NIL -> return $ Literal $ LiteralExpr NIL
     NUMBER x -> return $ Literal $ LiteralExpr $ NUMBER x
     STRING s -> return $ Literal $ LiteralExpr $ STRING s
-    IDENTIFIER s -> return $ Literal $ LiteralExpr $ IDENTIFIER s
+    IDENTIFIER s -> return $ Variable $ VariableExpr s
     LEFT_PAREN -> do
       e <- expression
       closing <- peek

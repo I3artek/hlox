@@ -3,8 +3,16 @@ module Evals where
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.State
-import Data.Map (Map, empty, insert, lookup)
-import Exprs (BinaryExpr (..), Expr (..), GroupingExpr (..), LiteralExpr (..), UnaryExpr (..))
+import Data.Map (Map, empty, insert, lookup, member)
+import Exprs
+  ( AssignmentExpr (..),
+    BinaryExpr (..),
+    Expr (..),
+    GroupingExpr (..),
+    LiteralExpr (..),
+    UnaryExpr (..),
+    VariableExpr (..),
+  )
 import Stmts (Stmt (..))
 import Tokens (Token (..))
 
@@ -41,9 +49,16 @@ evalError :: String -> Scope Value
 evalError msg = do
   throwError $ "Runtime Error: " ++ msg
 
-addToScope :: String -> Value -> Scope ()
-addToScope name val = do
+defineInScope :: String -> Value -> Scope ()
+defineInScope name val = do
   modify (insert name val)
+
+assignInScope :: String -> Value -> Scope ()
+assignInScope name val = do
+  vars <- get
+  if name `member` vars
+    then defineInScope name val
+    else runtimeError $ "Variable '" ++ name ++ "' not in scope!"
 
 lookupInScope :: String -> Scope Value
 lookupInScope name = do
@@ -76,11 +91,15 @@ execStmt (PrintStmt e) = do
   return ()
 execStmt (VarStmt name e) = do
   val <- evalExpr e
-  addToScope name val
+  defineInScope name val
   objects <- get
   lift $ lift $ print objects
 
 evalExpr :: Expr -> Scope Value
+evalExpr (Assignment e) = do
+  val <- evalExpr $ assignmentValue e
+  assignInScope (assignmentName e) val
+  return val
 evalExpr (Binary e) = do
   left <- evalExpr $ binaryLeft e
   right <- evalExpr $ binaryRight e
@@ -92,6 +111,7 @@ evalExpr (Unary e) = do
   right <- evalExpr $ unaryRight e
   let op = unaryOperator e
   evalUnaryExpr op right
+evalExpr (Variable e) = lookupInScope $ varName e
 
 evalBinaryExpr :: Value -> Token -> Value -> Scope Value
 evalBinaryExpr (LoxString a) PLUS (LoxString b) = return $ LoxString (a ++ b)
@@ -113,7 +133,6 @@ evalBinaryExpr t1 op t2 = evalError $ "Not possible to perform " ++ show t1 ++ "
 evalLiteral :: Token -> Scope Value
 evalLiteral (STRING s) = return $ LoxString s
 evalLiteral (NUMBER n) = return $ LoxNumber n
-evalLiteral (IDENTIFIER x) = lookupInScope x
 evalLiteral FALSE = return $ LoxBool False
 evalLiteral TRUE = return $ LoxBool True
 evalLiteral _ = return LoxNil
