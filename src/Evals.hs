@@ -4,6 +4,7 @@ import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.State
 import Data.Data (typeOf)
+import Data.Map (Map, empty, insert)
 import Exprs (BinaryExpr (..), Expr (..), GroupingExpr (..), LiteralExpr (..), UnaryExpr (..))
 import Stmts (Stmt (..))
 import Tokens (Token (..))
@@ -26,7 +27,7 @@ instance Show Value where
 type RuntimeError = String
 
 -- placeholder type
-type ScopeState = Int
+type ScopeState = Map String Value
 
 type Scope a = ExceptT RuntimeError (StateT ScopeState IO) a
 
@@ -38,6 +39,10 @@ evalError :: String -> Scope Value
 evalError msg = do
   throwError $ "Runtime Error: " ++ msg
 
+addToScope :: String -> Value -> Scope ()
+addToScope name val = do
+  modify (insert name val)
+
 execScope :: [Stmt] -> Scope ()
 execScope [] = return ()
 execScope (s : rest) = do
@@ -46,7 +51,7 @@ execScope (s : rest) = do
 
 execProgram :: [Stmt] -> IO ()
 execProgram stmts = do
-  errors <- evalStateT (runExceptT $ execScope stmts) (0)
+  errors <- evalStateT (runExceptT $ execScope stmts) (empty)
   case errors of
     Left err -> print err
     Right _ -> return ()
@@ -59,6 +64,11 @@ execStmt (PrintStmt e) = do
   val <- evalExpr e
   lift $ lift $ print val
   return ()
+execStmt (VarStmt name e) = do
+  val <- evalExpr e
+  addToScope name val
+  objects <- get
+  lift $ lift $ print objects
 
 evalExpr :: Expr -> Scope Value
 evalExpr (Binary e) = do

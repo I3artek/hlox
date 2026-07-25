@@ -38,10 +38,9 @@ instance Show Expr where
 
 data ParserState = ParserState {tokens :: [Token]}
 
-data ParseError = MatchError | ConsumeError String | InputError String deriving Show
+data ParseError = MatchError | ConsumeError String | InputError String deriving (Show)
 
 type Parser a = ExceptT ParseError (State ParserState) a
-
 
 peek :: Parser Token
 peek = do
@@ -59,7 +58,6 @@ advance = do
     [] -> return ()
     (_ : rest) -> put ps {tokens = rest}
 
-
 match :: [Token] -> Parser Token
 match expected = do
   next <- peek
@@ -69,13 +67,19 @@ match expected = do
       return next
     else throwError MatchError
 
+matchAnyIdentifier :: Parser String
+matchAnyIdentifier = do
+  next <- peek
+  case next of
+    IDENTIFIER name -> do advance; return name
+    _ -> throwError MatchError
+
 ifMatchErrorDo :: Parser a -> Parser a -> Parser a
 ifMatchErrorDo action errorCase =
   catchError action $ \e -> do
     case e of
       MatchError -> errorCase
       err -> throwError err
-
 
 consume :: Token -> Parser ()
 consume expected = do
@@ -135,6 +139,7 @@ primary = do
     NIL -> return $ Literal $ LiteralExpr NIL
     NUMBER x -> return $ Literal $ LiteralExpr $ NUMBER x
     STRING s -> return $ Literal $ LiteralExpr $ STRING s
+    IDENTIFIER s -> return $ Literal $ LiteralExpr $ IDENTIFIER s
     LEFT_PAREN -> do
       e <- expression
       closing <- peek

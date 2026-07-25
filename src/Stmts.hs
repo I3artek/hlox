@@ -10,6 +10,7 @@ import Tokens (Token (..))
 data Stmt
   = ExprStmt Expr
   | PrintStmt Expr
+  | VarStmt String Expr
   deriving (Show)
 
 consumeSemicolon :: Parser ()
@@ -33,10 +34,9 @@ statement =
 printStatement :: Parser Stmt
 printStatement =
   do
-    do
-      e <- expression
-      consumeSemicolon
-      return $ PrintStmt e
+    e <- expression
+    consumeSemicolon
+    return $ PrintStmt e
 
 exprStatement :: Parser Stmt
 exprStatement = do
@@ -45,7 +45,17 @@ exprStatement = do
   return $ ExprStmt expr
 
 varDeclaration :: Parser Stmt
-varDeclaration = undefined
+varDeclaration = do
+  name <- matchAnyIdentifier
+  do
+    do
+      _ <- match [EQUAL]
+      initializer <- expression
+      consumeSemicolon
+      return $ VarStmt name initializer
+    `ifMatchErrorDo` do
+      consumeSemicolon
+      return $ VarStmt name $ Literal $ LiteralExpr NIL
 
 declaration :: Parser Stmt
 declaration =
