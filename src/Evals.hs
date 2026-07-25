@@ -3,7 +3,7 @@ module Evals where
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.State
-import Data.Map (Map, empty, insert, findWithDefault)
+import Data.Map (Map, empty, insert, lookup)
 import Exprs (BinaryExpr (..), Expr (..), GroupingExpr (..), LiteralExpr (..), UnaryExpr (..))
 import Stmts (Stmt (..))
 import Tokens (Token (..))
@@ -33,7 +33,7 @@ scopeIO :: IO a -> Scope a
 scopeIO io = do
   lift $ lift io
 
-runtimeError :: String -> Scope ()
+runtimeError :: String -> Scope a
 runtimeError msg = do
   throwError $ "Runtime Error: " ++ msg
 
@@ -48,7 +48,10 @@ addToScope name val = do
 lookupInScope :: String -> Scope Value
 lookupInScope name = do
   vars <- get
-  return $ findWithDefault LoxNil name vars
+  let maybeVal = Data.Map.lookup name vars
+  case maybeVal of
+    Just v -> return v
+    Nothing -> runtimeError $ "Variable with name '" ++ name ++ "' not in scope!"
 
 execScope :: [Stmt] -> Scope ()
 execScope [] = return ()
