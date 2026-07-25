@@ -3,7 +3,7 @@ module Evals where
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.State
-import Data.Map (Map, empty, insert, lookup, member)
+import Data.Map (Map, empty, insert, member, notMember, (!))
 import Exprs
   ( AssignmentExpr (..),
     BinaryExpr (..),
@@ -33,7 +33,9 @@ instance Show Value where
 
 type RuntimeError = String
 
-type ScopeState = Map String Value
+type Env = Map String Value
+
+type ScopeState = [Env]
 
 type Scope a = ExceptT RuntimeError (StateT ScopeState IO) a
 
@@ -51,22 +53,27 @@ evalError msg = do
 
 defineInScope :: String -> Value -> Scope ()
 defineInScope name val = do
-  modify (insert name val)
+  envs <- get
+  case envs of
+    (s : copes) -> do put $ (insert name val s) : copes
+    -- The following is a bug in the interpreter itself, so we can crash
+    [] -> error "Left global scope!"
 
 assignInScope :: String -> Value -> Scope ()
 assignInScope name val = do
-  vars <- get
-  if name `member` vars
-    then defineInScope name val
-    else runtimeError $ "Variable '" ++ name ++ "' not in scope!"
+  envs <- get
+  let (without, with) = break (member name) envs
+  case with of
+    (found : rest) -> put $ without ++ (insert name val found) : rest
+    [] -> runtimeError $ "Variable '" ++ name ++ "' is undefined"
 
 lookupInScope :: String -> Scope Value
 lookupInScope name = do
-  vars <- get
-  let maybeVal = Data.Map.lookup name vars
-  case maybeVal of
-    Just v -> return v
-    Nothing -> runtimeError $ "Variable with name '" ++ name ++ "' not in scope!"
+  envs <- get
+  let maybeFound = dropWhile (notMember name) envs
+  case maybeFound of
+    (found : _) -> return $ found ! name
+    [] -> runtimeError $ "Variable '" ++ name ++ "' is undefined"
 
 execScope :: [Stmt] -> Scope ()
 execScope [] = return ()
@@ -76,7 +83,7 @@ execScope (s : rest) = do
 
 execProgram :: [Stmt] -> IO ()
 execProgram stmts = do
-  errors <- evalStateT (runExceptT $ execScope stmts) (empty)
+  errors <- evalStateT (runExceptT $ execScope stmts) ([empty])
   case errors of
     Left err -> print err
     Right _ -> return ()
