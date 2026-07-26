@@ -28,14 +28,57 @@ consumeSemicolon =
 statement :: Parser Stmt
 statement =
   do
-    next <- match [IF, WHILE, PRINT, LEFT_BRACE]
+    next <- match [IF, WHILE, FOR, PRINT, LEFT_BRACE]
     case next of
       IF -> ifStatement
       WHILE -> whileStatement
+      FOR -> forStatement
       PRINT -> printStatement
       LEFT_BRACE -> blockStatement
       _ -> undefined
     `ifMatchErrorDo` exprStatement
+
+forInitializer :: Parser Stmt
+forInitializer =
+  do
+    next <- match [SEMICOLON, VAR]
+    case next of
+      SEMICOLON -> return NOPStmt
+      VAR -> varDeclaration
+      _ -> error ""
+    `ifMatchErrorDo` exprStatement
+
+-- If there is no condition, we treat it as always true
+forCond :: Parser Expr
+forCond =
+  do
+    _ <- match [SEMICOLON]
+    return $ Literal $ LiteralExpr $ TRUE
+    `ifMatchErrorDo` do
+      expr <- expression
+      consumeSemicolon
+      return expr
+
+forIncrement :: Parser Expr
+forIncrement =
+  do
+    _ <- match [RIGHT_PAREN]
+    return $ Literal $ LiteralExpr $ NIL
+    `ifMatchErrorDo` do
+      expr <- expression
+      consume RIGHT_PAREN
+      return expr
+
+forStatement :: Parser Stmt
+forStatement = do
+  consume LEFT_PAREN
+  initializer <- forInitializer
+  cond <- forCond
+  incr <- forIncrement
+  body <- statement
+  let whileBody = BlockStmt [body, ExprStmt incr]
+      whileLoop = WhileStmt cond whileBody
+  return $ BlockStmt [initializer, whileLoop]
 
 whileStatement :: Parser Stmt
 whileStatement = do

@@ -61,6 +61,7 @@ data ParseError
   = MatchError
   | ConsumeError String
   | InputError String
+  | NoExprError Token String
   | AssignmentError String
   deriving (Show)
 
@@ -201,4 +202,4 @@ primary = do
           advance
           return $ Grouping $ GroupingExpr e
         _ -> do advance; throwError $ InputError $ "Closing parentheses missing" -- This should raise an error
-    _ -> throwError $ InputError $ "Unexpected token: " ++ show next
+    _ -> throwError $ NoExprError next $ "Unexpected token: " ++ show next
