@@ -136,11 +136,10 @@ logicalOp operator lowerPrecedence = do
   where
     recurseToRight left =
       do
-        do
-          _ <- match [operator]
-          right <- lowerPrecedence
-          let newLeft = Logical $ LogicalExpr operator left right
-          recurseToRight newLeft
+        _ <- match [operator]
+        right <- lowerPrecedence
+        let newLeft = Logical $ LogicalExpr operator left right
+        recurseToRight newLeft
         `ifMatchErrorDo` return left
 
 logicalOr :: Parser Expr
@@ -156,12 +155,11 @@ leftAssociative operators lowerPrecedence = do
   where
     recurseToRight left =
       do
-        do
-          operator <- match operators
-          right <- lowerPrecedence
-          let newLeft = Binary $ BinaryExpr operator left right
-          recurseToRight newLeft
-        `catchError` (\_ -> return left)
+        operator <- match operators
+        right <- lowerPrecedence
+        let newLeft = Binary $ BinaryExpr operator left right
+        recurseToRight newLeft
+        `ifMatchErrorDo` return left
 
 equality :: Parser Expr
 equality = leftAssociative [BANG_EQUAL, EQUAL_EQUAL] comparison
