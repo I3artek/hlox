@@ -9,6 +9,7 @@ data Stmt
   = ExprStmt Expr
   | IfStmt Expr Stmt Stmt
   | PrintStmt Expr
+  | WhileStmt Expr Stmt
   | VarStmt String Expr
   | BlockStmt [Stmt]
   | NOPStmt
@@ -27,13 +28,22 @@ consumeSemicolon =
 statement :: Parser Stmt
 statement =
   do
-    next <- match [IF, PRINT, LEFT_BRACE]
+    next <- match [IF, WHILE, PRINT, LEFT_BRACE]
     case next of
       IF -> ifStatement
+      WHILE -> whileStatement
       PRINT -> printStatement
       LEFT_BRACE -> blockStatement
       _ -> undefined
     `ifMatchErrorDo` exprStatement
+
+whileStatement :: Parser Stmt
+whileStatement = do
+  consume LEFT_PAREN
+  cond <- expression
+  consume RIGHT_PAREN
+  body <- statement
+  return $ WhileStmt cond body
 
 ifStatement :: Parser Stmt
 ifStatement = do

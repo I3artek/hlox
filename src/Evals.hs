@@ -102,6 +102,13 @@ execStmt (PrintStmt e) = do
   val <- evalExpr e
   lift $ lift $ print val
   return ()
+execStmt loop@(WhileStmt cond body) = do
+  val <- evalExpr cond
+  if isTruthy val
+    then do
+      execStmt body
+      execStmt loop
+    else return ()
 execStmt (VarStmt name e) = do
   val <- evalExpr e
   defineInScope name val
