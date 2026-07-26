@@ -7,9 +7,11 @@ import Tokens (Token (..))
 
 data Stmt
   = ExprStmt Expr
+  | IfStmt Expr Stmt Stmt
   | PrintStmt Expr
   | VarStmt String Expr
   | BlockStmt [Stmt]
+  | NOPStmt
   deriving (Show)
 
 consumeSemicolon :: Parser ()
@@ -26,12 +28,25 @@ statement :: Parser Stmt
 statement =
   do
     do
-      next <- match [PRINT, LEFT_BRACE]
+      next <- match [IF, PRINT, LEFT_BRACE]
       case next of
+        IF -> ifStatement
         PRINT -> printStatement
         LEFT_BRACE -> blockStatement
         _ -> undefined
     `ifMatchErrorDo` exprStatement
+
+ifStatement :: Parser Stmt
+ifStatement = do
+  consume LEFT_PAREN
+  cond <- expression
+  consume RIGHT_PAREN
+  thenB <- statement
+  do
+    _ <- match [ELSE]
+    elseB <- statement
+    return (IfStmt cond thenB elseB)
+    `ifMatchErrorDo` do return $ IfStmt cond thenB NOPStmt
 
 blockStatement :: Parser Stmt
 blockStatement = do

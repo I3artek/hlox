@@ -92,6 +92,11 @@ execStmt :: Stmt -> Scope ()
 execStmt (ExprStmt e) = do
   _ <- evalExpr e
   return ()
+execStmt (IfStmt cond thenB elseB) = do
+  val <- evalExpr cond
+  if isTruthy val
+    then execStmt thenB
+    else execStmt elseB
 execStmt (PrintStmt e) = do
   val <- evalExpr e
   lift $ lift $ print val
@@ -103,6 +108,7 @@ execStmt (BlockStmt stmts) = do
   modify (\envs -> empty : envs)
   execScope stmts
   exitScope
+execStmt NOPStmt = return ()
 
 -- Make sure we always have at least one (global) env
 -- Throw an error otherwise as this is a bug and not a user error
