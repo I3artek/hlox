@@ -3,8 +3,9 @@
 module Tokens (Token (..), scanTokens) where
 
 import Control.Monad.State
-import Data.Char (isAlpha, isAlphaNum, isDigit)
+import Data.Char (digitToInt, isAlpha, isAlphaNum, isDigit)
 import Data.Map
+import GHC.Float (int2Double)
 
 data Token
   = -- Single character
@@ -175,7 +176,23 @@ startLongToken c = do
   clearLongToken
   addToLongToken c
 
-integer :: Tokenizer ()
+digitsToInt :: [Char] -> Int
+digitsToInt = Prelude.foldl (\seed el -> seed * 10 + digitToInt el) 0
+
+digitsToFrac :: [Char] -> Double
+digitsToFrac = Prelude.foldr (\el seed -> (int2Double (digitToInt el) + seed) / 10) 0
+
+wordToInt :: Tokenizer Int
+wordToInt = do
+  ts <- get
+  return $ digitsToInt $ word ts
+
+wordToFrac :: Tokenizer Double
+wordToFrac = do
+  ts <- get
+  return $ digitsToFrac $ word ts
+
+integer :: Tokenizer Int
 integer = do
   c <- peek
   if isDigit c
@@ -183,21 +200,31 @@ integer = do
       addToLongToken c
       _ <- advance
       integer
-    else return ()
+    else wordToInt
+
+fractional :: Tokenizer Double
+fractional = do
+  c <- peek
+  if isDigit c
+    then do
+      addToLongToken c
+      _ <- advance
+      fractional
+    else wordToFrac
 
 number :: Tokenizer ()
 number = do
-  integer
+  intPart <- integer
   point <- peek
   digit <- peekNext
   if point == '.' && isDigit digit
     then do
-      addToLongToken '.'
+      clearLongToken
       _ <- advance
-      integer
-      addToken $ NUMBER 0.5
+      fracPart <- fractional
+      addToken $ NUMBER $ int2Double intPart + fracPart
     else
-      addToken $ NUMBER 1.0
+      addToken $ NUMBER $ int2Double intPart
 
 identifier :: Tokenizer ()
 identifier = do
