@@ -27,13 +27,12 @@ consumeSemicolon =
 statement :: Parser Stmt
 statement =
   do
-    do
-      next <- match [IF, PRINT, LEFT_BRACE]
-      case next of
-        IF -> ifStatement
-        PRINT -> printStatement
-        LEFT_BRACE -> blockStatement
-        _ -> undefined
+    next <- match [IF, PRINT, LEFT_BRACE]
+    case next of
+      IF -> ifStatement
+      PRINT -> printStatement
+      LEFT_BRACE -> blockStatement
+      _ -> undefined
     `ifMatchErrorDo` exprStatement
 
 ifStatement :: Parser Stmt
@@ -84,11 +83,10 @@ varDeclaration :: Parser Stmt
 varDeclaration = do
   name <- matchAnyIdentifier
   do
-    do
-      _ <- match [EQUAL]
-      initializer <- expression
-      consumeSemicolon
-      return $ VarStmt name initializer
+    _ <- match [EQUAL]
+    initializer <- expression
+    consumeSemicolon
+    return $ VarStmt name initializer
     `ifMatchErrorDo` do
       consumeSemicolon
       return $ VarStmt name $ Literal $ LiteralExpr NIL
@@ -96,11 +94,10 @@ varDeclaration = do
 declaration :: Parser Stmt
 declaration =
   do
-    do
-      decl <- match [VAR]
-      case decl of
-        VAR -> varDeclaration
-        _ -> throwError $ InputError "Not supported"
+    decl <- match [VAR]
+    case decl of
+      VAR -> varDeclaration
+      _ -> throwError $ InputError "Not supported"
     `ifMatchErrorDo` statement
 
 program :: Parser [Stmt]

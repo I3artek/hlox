@@ -111,12 +111,11 @@ assignment :: Parser Expr
 assignment = do
   expr <- equality
   do
-    do
-      _ <- match [EQUAL]
-      right <- assignment
-      case expr of
-        (Variable (VariableExpr name)) -> return $ Assignment $ AssignmentExpr name right
-        _ -> throwError $ AssignmentError $ "'" ++ show expr ++ "' is not a valid lvalue!"
+    _ <- match [EQUAL]
+    right <- assignment
+    case expr of
+      (Variable (VariableExpr name)) -> return $ Assignment $ AssignmentExpr name right
+      _ -> throwError $ AssignmentError $ "'" ++ show expr ++ "' is not a valid lvalue!"
     `ifMatchErrorDo` return expr
 
 leftAssociative :: [Token] -> Parser Expr -> Parser Expr
