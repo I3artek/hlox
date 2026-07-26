@@ -9,6 +9,7 @@ data Expr
   | Binary BinaryExpr
   | Grouping GroupingExpr
   | Literal LiteralExpr
+  | Logical LogicalExpr
   | Unary UnaryExpr
   | Variable VariableExpr
 
@@ -19,6 +20,8 @@ data BinaryExpr = BinaryExpr {binaryOperator :: Token, binaryLeft :: Expr, binar
 data GroupingExpr = GroupingExpr {groupedExpression :: Expr}
 
 data LiteralExpr = LiteralExpr {value :: Token}
+
+data LogicalExpr = LogicalExpr {logicalOperator :: Token, logicalLeft :: Expr, logicalRight :: Expr}
 
 data UnaryExpr = UnaryExpr {unaryOperator :: Token, unaryRight :: Expr}
 
@@ -36,6 +39,14 @@ instance Show Expr where
       ++ ")"
   show (Grouping e) = "(group " ++ show (groupedExpression e) ++ ")"
   show (Literal e) = "(literal: " ++ show (value e) ++ ")"
+  show (Logical e) =
+    "("
+      ++ show (logicalOperator e)
+      ++ " "
+      ++ show (logicalLeft e)
+      ++ " "
+      ++ show (logicalRight e)
+      ++ ")"
   show (Unary e) =
     "("
       ++ show (unaryOperator e)
@@ -109,7 +120,7 @@ expression = do
 
 assignment :: Parser Expr
 assignment = do
-  expr <- equality
+  expr <- logicalOr
   do
     _ <- match [EQUAL]
     right <- assignment
@@ -117,6 +128,26 @@ assignment = do
       (Variable (VariableExpr name)) -> return $ Assignment $ AssignmentExpr name right
       _ -> throwError $ AssignmentError $ "'" ++ show expr ++ "' is not a valid lvalue!"
     `ifMatchErrorDo` return expr
+
+logicalOp :: Token -> Parser Expr -> Parser Expr
+logicalOp operator lowerPrecedence = do
+  left <- lowerPrecedence
+  recurseToRight left
+  where
+    recurseToRight left =
+      do
+        do
+          _ <- match [operator]
+          right <- lowerPrecedence
+          let newLeft = Logical $ LogicalExpr operator left right
+          recurseToRight newLeft
+        `ifMatchErrorDo` return left
+
+logicalOr :: Parser Expr
+logicalOr = logicalOp OR logicalAnd
+
+logicalAnd :: Parser Expr
+logicalAnd = logicalOp AND equality
 
 leftAssociative :: [Token] -> Parser Expr -> Parser Expr
 leftAssociative operators lowerPrecedence = do

@@ -10,6 +10,7 @@ import Exprs
     Expr (..),
     GroupingExpr (..),
     LiteralExpr (..),
+    LogicalExpr (..),
     UnaryExpr (..),
     VariableExpr (..),
   )
@@ -131,6 +132,18 @@ evalExpr (Binary e) = do
   evalBinaryExpr left op right
 evalExpr (Grouping e) = evalExpr $ groupedExpression e
 evalExpr (Literal e) = evalLiteral $ value e
+evalExpr (Logical e) = do
+  left <- evalExpr $ logicalLeft e
+  case logicalOperator e of
+    OR -> do
+      if isTruthy left
+        then return left
+        else evalExpr $ logicalRight e
+    AND -> do
+      if not $ isTruthy left
+        then return left
+        else evalExpr $ logicalRight e
+    _ -> error ""
 evalExpr (Unary e) = do
   right <- evalExpr $ unaryRight e
   let op = unaryOperator e
