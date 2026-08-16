@@ -177,10 +177,9 @@ factor = leftAssociative [SLASH, STAR] unary
 unary :: Parser Expr
 unary =
   do
-    do
-      operator <- match [BANG, MINUS]
-      right <- unary
-      return $ Unary $ UnaryExpr operator right
+    operator <- match [BANG, MINUS]
+    right <- unary
+    return $ Unary $ UnaryExpr operator right
     `catchError` (\_ -> primary)
 
 primary :: Parser Expr
