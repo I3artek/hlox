@@ -7,6 +7,7 @@ import Tokens (Token (..))
 data Expr
   = Assignment AssignmentExpr
   | Binary BinaryExpr
+  | Call CallExpr
   | Grouping GroupingExpr
   | Literal LiteralExpr
   | Logical LogicalExpr
@@ -16,6 +17,8 @@ data Expr
 data AssignmentExpr = AssignmentExpr {assignmentName :: String, assignmentValue :: Expr}
 
 data BinaryExpr = BinaryExpr {binaryOperator :: Token, binaryLeft :: Expr, binaryRight :: Expr}
+
+data CallExpr = CallExpr {callCallee :: Expr, callArguments :: [Expr]}
 
 data GroupingExpr = GroupingExpr {groupedExpression :: Expr}
 
@@ -37,6 +40,7 @@ instance Show Expr where
       ++ " "
       ++ show (binaryRight e)
       ++ ")"
+  show (Call e) = "(call: " ++ show (callCallee e) ++ show (callArguments e) ++ ")"
   show (Grouping e) = "(group " ++ show (groupedExpression e) ++ ")"
   show (Literal e) = "(literal: " ++ show (value e) ++ ")"
   show (Logical e) =
@@ -180,7 +184,46 @@ unary =
     operator <- match [BANG, MINUS]
     right <- unary
     return $ Unary $ UnaryExpr operator right
-    `catchError` (\_ -> primary)
+    `catchError` (\_ -> call)
+
+call :: Parser Expr
+call = do
+  callee <- primary
+  do
+    _ <- match [LEFT_PAREN]
+    finishCall callee
+    `ifMatchErrorDo` return callee
+
+finishCall :: Expr -> Parser Expr
+finishCall callee =
+  do
+    _ <- match [RIGHT_PAREN]
+    -- No arguments to the call. We finish it and check if the result is called
+    let wholeCall = Call $ CallExpr callee []
+    do
+      _ <- match [LEFT_PAREN]
+      finishCall wholeCall
+      `ifMatchErrorDo` return wholeCall
+    -- Arguments were provided
+    `ifMatchErrorDo` do
+      args <- arguments
+      consume RIGHT_PAREN
+      let wholeCall = Call $ CallExpr callee args
+      do
+        -- Recurse if the result is called
+        _ <- match [LEFT_PAREN]
+        finishCall wholeCall
+        `ifMatchErrorDo` return wholeCall
+
+arguments :: Parser [Expr]
+arguments =
+  do
+    next <- expression
+    do
+      _ <- match [COMMA]
+      rest <- arguments
+      return $ next : rest
+      `ifMatchErrorDo` return [next]
 
 primary :: Parser Expr
 primary = do
