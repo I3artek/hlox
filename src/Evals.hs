@@ -7,6 +7,7 @@ import Data.Map (Map, empty, insert, member, notMember, (!))
 import Exprs
   ( AssignmentExpr (..),
     BinaryExpr (..),
+    CallExpr (..),
     Expr (..),
     GroupingExpr (..),
     LiteralExpr (..),
@@ -127,6 +128,16 @@ exitScope = do
     (_ : e : nvs) -> put (e : nvs)
     _ -> error "Left global scope!"
 
+toCallable :: Value -> Scope Value
+toCallable callee = return callee
+
+evalExprList :: [Expr] -> Scope [Value]
+evalExprList [] = return []
+evalExprList (first : rest) = do
+  fEval <- evalExpr first
+  rEval <- evalExprList rest
+  return $ fEval : rEval
+
 evalExpr :: Expr -> Scope Value
 evalExpr (Assignment e) = do
   val <- evalExpr $ assignmentValue e
@@ -137,6 +148,11 @@ evalExpr (Binary e) = do
   right <- evalExpr $ binaryRight e
   let op = binaryOperator e
   evalBinaryExpr left op right
+evalExpr (Call e) = do
+  callee <- evalExpr $ callCallee e
+  callable <- toCallable callee
+  args <- evalExprList (callArguments e)
+  return LoxNil
 evalExpr (Grouping e) = evalExpr $ groupedExpression e
 evalExpr (Literal e) = evalLiteral $ value e
 evalExpr (Logical e) = do
