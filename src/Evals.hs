@@ -114,10 +114,13 @@ execStmt (VarStmt name e) = do
   val <- evalExpr e
   defineInScope name val
 execStmt (BlockStmt stmts) = do
-  modify (\envs -> empty : envs)
+  newScope
   execScope stmts
   exitScope
 execStmt NOPStmt = return ()
+
+newScope :: Scope ()
+newScope = modify (\envs -> empty : envs)
 
 -- Make sure we always have at least one (global) env
 -- Throw an error otherwise as this is a bug and not a user error
