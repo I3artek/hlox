@@ -35,13 +35,15 @@ instance Show Value where
   show (LoxFunction args body) = show args ++ "=>{" ++ show body ++ "}"
   show LoxNil = ""
 
-type RuntimeError = String
+data RuntimeException
+  = RuntimeError String
+  | ReturnException Value
 
 type Env = Map String Value
 
 type ScopeState = [Env]
 
-type Scope a = ExceptT RuntimeError (StateT ScopeState IO) a
+type Scope a = ExceptT RuntimeException (StateT ScopeState IO) a
 
 scopeIO :: IO a -> Scope a
 scopeIO io = do
@@ -49,11 +51,11 @@ scopeIO io = do
 
 runtimeError :: String -> Scope a
 runtimeError msg = do
-  throwError $ "Runtime Error: " ++ msg
+  throwError $ RuntimeError $ "Runtime Error: " ++ msg
 
 evalError :: String -> Scope Value
 evalError msg = do
-  throwError $ "Runtime Error: " ++ msg
+  throwError $ RuntimeError $ "Runtime Error: " ++ msg
 
 defineInScope :: String -> Value -> Scope ()
 defineInScope name val = do
@@ -89,7 +91,8 @@ execProgram :: [Stmt] -> IO ()
 execProgram stmts = do
   errors <- evalStateT (runExceptT $ execScope stmts) ([empty])
   case errors of
-    Left err -> print err
+    Left (RuntimeError err) -> print err
+    Left (ReturnException val) -> print val
     Right _ -> return ()
 
 execStmt :: Stmt -> Scope ()
