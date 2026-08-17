@@ -23,6 +23,7 @@ data Value
   | LoxNumber Double
   | LoxObject String -- for now
   | LoxBool Bool
+  | LoxFunction [String] [Stmt]
   | LoxNil
   deriving (Eq, Ord)
 
@@ -31,6 +32,7 @@ instance Show Value where
   show (LoxNumber n) = show n
   show (LoxObject s) = show s
   show (LoxBool b) = show b
+  show (LoxFunction args body) = show args ++ "=>{" ++ show body ++ "}"
   show LoxNil = ""
 
 type RuntimeError = String
@@ -94,6 +96,8 @@ execStmt :: Stmt -> Scope ()
 execStmt (ExprStmt e) = do
   _ <- evalExpr e
   return ()
+execStmt (FunStmt name params body) = do
+  defineInScope name $ LoxFunction params body
 execStmt (IfStmt cond thenB elseB) = do
   val <- evalExpr cond
   if isTruthy val
@@ -131,8 +135,9 @@ exitScope = do
     (_ : e : nvs) -> put (e : nvs)
     _ -> error "Left global scope!"
 
-toCallable :: Value -> Scope Value
-toCallable callee = return callee
+isCallable :: Value -> Scope ()
+isCallable (LoxFunction _ _) = return ()
+isCallable callee = runtimeError $ show callee ++ " is not a function!"
 
 evalExprList :: [Expr] -> Scope [Value]
 evalExprList [] = return []
@@ -140,6 +145,14 @@ evalExprList (first : rest) = do
   fEval <- evalExpr first
   rEval <- evalExprList rest
   return $ fEval : rEval
+
+callFunction :: Value -> [Value] -> Scope Value
+callFunction (LoxFunction params body) args = do
+  newScope
+  execScope body
+  exitScope
+  return LoxNil
+callFunction _ _ = error "callFunction should only be called on LoxFunction objects"
 
 evalExpr :: Expr -> Scope Value
 evalExpr (Assignment e) = do
@@ -153,8 +166,9 @@ evalExpr (Binary e) = do
   evalBinaryExpr left op right
 evalExpr (Call e) = do
   callee <- evalExpr $ callCallee e
-  callable <- toCallable callee
+  isCallable callee
   args <- evalExprList (callArguments e)
+  callFunction callee args
   return LoxNil
 evalExpr (Grouping e) = evalExpr $ groupedExpression e
 evalExpr (Literal e) = evalLiteral $ value e

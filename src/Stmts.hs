@@ -7,6 +7,7 @@ import Tokens (Token (..))
 
 data Stmt
   = ExprStmt Expr
+  | FunStmt String [String] [Stmt]
   | IfStmt Expr Stmt Stmt
   | PrintStmt Expr
   | WhileStmt Expr Stmt
@@ -14,6 +15,14 @@ data Stmt
   | BlockStmt [Stmt]
   | NOPStmt
   deriving (Show)
+
+-- We need to define these instances to be able to derive Eq and Ord on Value data type
+-- But they won't be used in reality, that's just a result of Function being a Value
+instance Eq Stmt where
+  _ == _ = False
+
+instance Ord Stmt where
+  _ <= _ = True
 
 consumeSemicolon :: Parser ()
 consumeSemicolon =
@@ -144,12 +153,36 @@ varDeclaration = do
       consumeSemicolon
       return $ VarStmt name $ Literal $ LiteralExpr NIL
 
+funParameters :: Parser [String]
+funParameters =
+  do
+    _ <- match [RIGHT_PAREN]
+    return []
+    `ifMatchErrorDo` do
+      next <- matchAnyIdentifier
+      do
+        _ <- match [COMMA]
+        rest <- funParameters
+        return $ next : rest
+        `ifMatchErrorDo` return [next]
+
+funDeclaration :: Parser Stmt
+funDeclaration = do
+  name <- matchAnyIdentifier
+  consume LEFT_PAREN
+  params <- funParameters
+  consume LEFT_BRACE
+  body <- block
+  consume RIGHT_BRACE
+  return $ FunStmt name params body
+
 declaration :: Parser Stmt
 declaration =
   do
-    decl <- match [VAR]
+    decl <- match [VAR, FUN]
     case decl of
       VAR -> varDeclaration
+      FUN -> funDeclaration
       _ -> throwError $ InputError "Not supported"
     `ifMatchErrorDo` statement
 
