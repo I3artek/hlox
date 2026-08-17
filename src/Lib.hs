@@ -1,11 +1,11 @@
 module Lib (runREPL) where
 
+import Control.Monad.Except (runExceptT)
 import Control.Monad.State
-import Evals (Scope, execScope, scopeIO, ScopeState)
+import Evals (RuntimeException (..), Scope, ScopeState, execScope, scopeIO)
 import Stmts (parse)
 import System.IO
 import Tokens (scanTokens)
-import Control.Monad.Except (runExceptT)
 
 repl :: Scope ()
 repl = do
@@ -22,7 +22,8 @@ runREPL :: ScopeState -> IO ()
 runREPL initialScope = do
   (errors, scope) <- runStateT (runExceptT $ repl) (initialScope)
   case errors of
-    Left err -> do print err; runREPL scope 
+    Left (RuntimeError err) -> do print err; runREPL scope
+    Left (ReturnException val) -> do print val; runREPL scope
     Right _ -> return ()
 
 run :: String -> Scope ()

@@ -10,6 +10,7 @@ data Stmt
   | FunStmt String [String] [Stmt]
   | IfStmt Expr Stmt Stmt
   | PrintStmt Expr
+  | ReturnStmt Expr
   | WhileStmt Expr Stmt
   | VarStmt String Expr
   | BlockStmt [Stmt]
@@ -37,12 +38,13 @@ consumeSemicolon =
 statement :: Parser Stmt
 statement =
   do
-    next <- match [IF, WHILE, FOR, PRINT, LEFT_BRACE]
+    next <- match [IF, WHILE, FOR, PRINT, RETURN, LEFT_BRACE]
     case next of
       IF -> ifStatement
       WHILE -> whileStatement
       FOR -> forStatement
       PRINT -> printStatement
+      RETURN -> returnStatement
       LEFT_BRACE -> blockStatement
       _ -> undefined
     `ifMatchErrorDo` exprStatement
@@ -134,6 +136,16 @@ printStatement =
     e <- expression
     consumeSemicolon
     return $ PrintStmt e
+
+returnStatement :: Parser Stmt
+returnStatement =
+  do
+    _ <- match [SEMICOLON]
+    return $ ReturnStmt $ Literal $ LiteralExpr NIL
+    `ifMatchErrorDo` do
+      expr <- expression
+      consumeSemicolon
+      return $ ReturnStmt expr
 
 exprStatement :: Parser Stmt
 exprStatement = do

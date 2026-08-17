@@ -1,6 +1,6 @@
 module Evals where
 
-import Control.Monad.Error.Class (throwError)
+import Control.Monad.Error.Class (MonadError (catchError), throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.State
 import Data.Map (Map, empty, insert, member, notMember, (!))
@@ -48,6 +48,18 @@ type Scope a = ExceptT RuntimeException (StateT ScopeState IO) a
 scopeIO :: IO a -> Scope a
 scopeIO io = do
   lift $ lift io
+
+returnValue :: Value -> Scope a
+returnValue val = throwError $ ReturnException val
+
+catchReturn :: Scope Value -> Scope Value
+catchReturn action =
+  catchError action $ \e -> do
+    case e of
+      ReturnException val -> do
+        exitScope
+        return val
+      err -> throwError err
 
 runtimeError :: String -> Scope a
 runtimeError msg = do
@@ -110,6 +122,9 @@ execStmt (PrintStmt e) = do
   val <- evalExpr e
   lift $ lift $ print val
   return ()
+execStmt (ReturnStmt e) = do
+  val <- evalExpr e
+  returnValue val
 execStmt loop@(WhileStmt cond body) = do
   val <- evalExpr cond
   if isTruthy val
@@ -165,12 +180,13 @@ assignArgValues (p : arams) (a : rgs) = do
 assignArgValues p a = checkArity (length p) (length a)
 
 callFunction :: Value -> [Value] -> Scope Value
-callFunction (LoxFunction params body) args = do
-  newScope
-  assignArgValues params args
-  execScope body
-  exitScope
-  return LoxNil
+callFunction (LoxFunction params body) args =
+  catchReturn $ do
+    newScope
+    assignArgValues params args
+    execScope body
+    exitScope
+    return LoxNil
 callFunction _ _ = error "callFunction should only be called on LoxFunction objects"
 
 evalExpr :: Expr -> Scope Value
@@ -187,8 +203,8 @@ evalExpr (Call e) = do
   callee <- evalExpr $ callCallee e
   isCallable callee (length $ callArguments e)
   args <- evalExprList (callArguments e)
-  callFunction callee args
-  return LoxNil
+  val <- callFunction callee args
+  return val
 evalExpr (Grouping e) = evalExpr $ groupedExpression e
 evalExpr (Literal e) = evalLiteral $ value e
 evalExpr (Logical e) = do
