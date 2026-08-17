@@ -164,7 +164,9 @@ funParameters =
         _ <- match [COMMA]
         rest <- funParameters
         return $ next : rest
-        `ifMatchErrorDo` return [next]
+        `ifMatchErrorDo` do
+          consume RIGHT_PAREN
+          return [next]
 
 funDeclaration :: Parser Stmt
 funDeclaration = do

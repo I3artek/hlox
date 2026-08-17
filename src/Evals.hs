@@ -135,9 +135,9 @@ exitScope = do
     (_ : e : nvs) -> put (e : nvs)
     _ -> error "Left global scope!"
 
-isCallable :: Value -> Scope ()
-isCallable (LoxFunction _ _) = return ()
-isCallable callee = runtimeError $ show callee ++ " is not a function!"
+isCallable :: Value -> Int -> Scope ()
+isCallable (LoxFunction params _) argNum = checkArity (length params) argNum
+isCallable callee _ = runtimeError $ show callee ++ " is not a function!"
 
 evalExprList :: [Expr] -> Scope [Value]
 evalExprList [] = return []
@@ -146,9 +146,25 @@ evalExprList (first : rest) = do
   rEval <- evalExprList rest
   return $ fEval : rEval
 
+checkArity :: Int -> Int -> Scope ()
+checkArity paramNum argNum = do
+  case compare paramNum argNum of
+    LT -> runtimeError "Too many arguments to function call!"
+    EQ -> return ()
+    GT -> runtimeError "Not enough arguments to function call!"
+
+assignArgValues :: [String] -> [Value] -> Scope ()
+assignArgValues [] [] = return ()
+assignArgValues (p : arams) (a : rgs) = do
+  defineInScope p a
+  assignArgValues arams rgs
+-- The following is an error case, so just reuse the messages we already have
+assignArgValues p a = checkArity (length p) (length a)
+
 callFunction :: Value -> [Value] -> Scope Value
 callFunction (LoxFunction params body) args = do
   newScope
+  assignArgValues params args
   execScope body
   exitScope
   return LoxNil
@@ -166,7 +182,7 @@ evalExpr (Binary e) = do
   evalBinaryExpr left op right
 evalExpr (Call e) = do
   callee <- evalExpr $ callCallee e
-  isCallable callee
+  isCallable callee (length $ callArguments e)
   args <- evalExprList (callArguments e)
   callFunction callee args
   return LoxNil
