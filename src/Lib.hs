@@ -1,4 +1,4 @@
-module Lib (runREPL) where
+module Lib (runREPL, runSourceFile) where
 
 import Control.Monad.Except (runExceptT)
 import Control.Monad.State
@@ -24,6 +24,15 @@ runREPL initialScope = do
   case errors of
     Left (RuntimeError err) -> do print err; runREPL scope
     Left (ReturnException val) -> do print val; runREPL scope
+    Right _ -> return ()
+
+runSourceFile :: ScopeState -> String -> IO ()
+runSourceFile initialScope filename = do
+  code <- readFile filename
+  errors <- evalStateT (runExceptT $ run code) (initialScope)
+  case errors of
+    Left (RuntimeError err) -> do print err
+    Left (ReturnException val) -> do print val
     Right _ -> return ()
 
 run :: String -> Scope ()
