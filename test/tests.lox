@@ -1,0 +1,67 @@
+print "Testing basic logic and conditionals";
+{
+  var x = 1;
+  if(true)
+    x = 2;
+  if(false)
+    x = 3;
+  if(!true)
+    x = 3;
+  if(!false and x == 2)
+    x = 4;
+  if(!!false)
+    x = 3;
+  if(false or true or x == 4)
+    x = 6;
+  if(x == 6)
+    print "Booleans an if statements: PASS";
+  else
+    print "Booleans an if statements: FAIL";
+}
+
+print "Testing arithmetic operations";
+if(2+3==5)
+  print "Addition: PASS";
+else
+  print "Addition: FAIL";
+if(7-1==6)
+  print "Substraction: PASS";
+else
+  print "Substraction: FAIL";
+if(8*7==56)
+  print "Multiplication: PASS";
+else
+  print "Multiplication: FAIL";
+if(6/2==3)
+  print "Division: PASS";
+else
+  print "Division: FAIL";
+
+print "Testing variable scoping";
+var a = 4;
+var b = 5;
+{
+  var c = 6;
+  {
+    if(a == 4 and b == 5 and c == 6)
+      print "Accessing variables from outer scope: PASS";
+    else
+      print "Accessing variables from outer scope: FAIL";
+  }
+  var shadowed = false;
+  {
+    var a = 8;
+    if(a == 8)
+      shadowed = true;
+  }
+  if(shadowed and a == 4)
+    print "Shadowing variables: PASS";
+  else
+    print "Shadowing variables: FAIL";
+
+  a = 6;
+}
+if(a == 6)
+  print "Modifying variables from outer scope: PASS";
+else
+  print "Modifying variables from outer scope: FAIL";

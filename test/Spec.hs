@@ -1,2 +1,9 @@
+import Data.Map (empty)
+import Lib
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = do
+  selfTest
+
+selfTest :: IO ()
+selfTest = runSourceFile [empty] "test/tests.lox"
